@@ -37,3 +37,10 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+
+# data & shape files
+*/input data/*
+
+# any pdfs
+*.pdf
