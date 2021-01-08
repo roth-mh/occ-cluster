@@ -3,8 +3,8 @@ library(shiny)
 library(geosphere)
 
 setwd("/Users/MarkRoth/Documents/Oregon State/Research/")
-source("eBird/site constuction/helper/helpers.R")
-f_name <- "clusteredSites_2020-12-17_.csv"
+source("eBird/occ and grouping checklists/occ-cluster/helper/helpers.R")
+f_name <- "clusteredSites_2020-12-26_.csv"
 clusted_sites <- read.delim(f_name, sep=",")
 
 # 
@@ -52,7 +52,7 @@ c_func <- function(sites){
 }
 
 t.f <- clusted_sites$site %in% seq(1:100000)
-max_site <- max(as.double(clusted_sites[t.f,]$site))
+max_site <- max(as.double(as.character(clusted_sites[t.f,]$site)))
 
 
 # RUN APP
@@ -243,6 +243,6 @@ runMap <- function(){
   }
   shinyApp(ui, server)
 }
-# df_pls <- runApp(runMap())
-# write.csv(df_pls, file=paste("clusteredSites", Sys.Date(), ".csv", sep="_"))
+df_pls <- runApp(runMap())
+write.csv(df_pls, file=paste("clusteredSites", Sys.Date(), ".csv", sep="_"))
 

@@ -35,10 +35,10 @@ calcClustGeoMSE <- function(alpha, checklists, covObj, num_sites=NULL, ratio=NUL
     num_sites = round(nrow(checklists_filtered)/ratio)
   }
   
-  WETA_env_data <- dist(subset(checklists_filtered, select = unlist(covObj$occ_cov)))
+  WETA_env_data <- dist(subset(checklists_filtered, select = unlist(covObj$siteCovs)))
   WETA_geo_data <- dist(subset(checklists_filtered, select = c("latitude", "longitude")))
   
-  tree <- ?hclustgeo(WETA_env_data, WETA_geo_data, alpha = alpha)
+  tree <- hclustgeo(WETA_env_data, WETA_geo_data, alpha = alpha)
   part <- cutree(tree, num_sites)
   checklists_filtered$site <- part
   
@@ -51,22 +51,22 @@ calcClustGeoMSE <- function(alpha, checklists, covObj, num_sites=NULL, ratio=NUL
     checklists <- checklists_filtered_df
   }
 
-  # clustGeo_MSE <- calcOccMSE(sites_df = checklists,
-  #                            covariate_object = covObj,
-  #                            true_occ_coefficients = TRUE_OCC_COEFF,
-  #                            true_det_coefficients = TRUE_DET_COEFF,
-  #                            syn_spec = TRUE,
-  #                            enforce_false_positives = enforce_false_p
-  # )
-  
-  clustGeo_MSE <- calcOccMSELambda(sites_df = checklists,
+  clustGeo_MSE <- calcOccMSE(sites_df = checklists,
                              covariate_object = covObj,
                              true_occ_coefficients = TRUE_OCC_COEFF,
                              true_det_coefficients = TRUE_DET_COEFF,
                              syn_spec = TRUE,
-                             enforce_false_positives = enforce_false_p,
-                             lambda = lam
+                             enforce_false_positives = enforce_false_p
   )
+  
+  # clustGeo_MSE <- calcOccMSELambda(sites_df = checklists,
+  #                            covariate_object = covObj,
+  #                            true_occ_coefficients = TRUE_OCC_COEFF,
+  #                            true_det_coefficients = TRUE_DET_COEFF,
+  #                            syn_spec = TRUE,
+  #                            enforce_false_positives = enforce_false_p,
+  #                            lambda = lam
+  # )
   return(clustGeo_MSE)
 }
 

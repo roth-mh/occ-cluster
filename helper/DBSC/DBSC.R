@@ -2,9 +2,9 @@
 # DBSC
 # DOI: 10.1016/j.cageo.2011.12.017
 ######
-setwd("/Users/MarkRoth/Documents/Oregon State/Year 1/Research/")
-source("eBird/site def/helper/helpers.R")
-source("eBird/site def/helper/DBSCHelper.R")
+# setwd("/Users/MarkRoth/Documents/Oregon State/Year 1/Research/")
+# source("eBird/site def/helper/helpers.R")
+# source("eBird/site def/helper/DBSCHelper.R")
 
 
 # load("eBird/site def/data from SLURM/clustSite1000.Rdata")

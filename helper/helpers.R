@@ -323,7 +323,7 @@ calcOccMSE <- function(sites_df_occ, covariate_object, true_occ_coefficients, tr
   if(skip_closure){
     closed_df <- sites_df_occ
   } else {
-    closed_df <- enforceClosure(sites_df_occ, covariate_object$occ_cov, sites_occ, enforce_false_positives)
+    closed_df <- enforceClosure(sites_df_occ, covariate_object$siteCovs, sites_occ, enforce_false_positives)
   }
   
   if(syn_spec){
@@ -341,13 +341,14 @@ calcOccMSE <- function(sites_df_occ, covariate_object, true_occ_coefficients, tr
   )
   
   det_cov_str <- paste("", paste(covariate_object$det_cov, collapse="+"), sep=" ~ ")
-  occ_cov_str <- paste("", paste(covariate_object$occ_cov, collapse="+"), sep=" ~ ")
+  occ_cov_str <- paste("", paste(covariate_object$siteCovs, collapse="+"), sep=" ~ ")
   
   species_formula <- paste(det_cov_str, occ_cov_str, sep = " ")
   species_formula <- as.formula(species_formula)
   
   occ_um <- unmarked::formatWide(umf_AUK, type = "unmarkedFrameOccu")
   
+  # og_syn_gen_form <- unmarked::occuPEN(formula = species_formula, occ_um, lambda = .01, pen.type = "Bayes")
   og_syn_gen_form <- unmarked::occu(formula = species_formula, occ_um)
   
   
@@ -398,7 +399,7 @@ calc_zero_det_sites <- function(list_of_checklists){
         num_z_d_sites <- num_z_d_sites + 1
       }
     }
-    list_of_z_d_sites <- append(list_of_z_d_sites, num_z_d_sites)
+    list_of_z_d_sites <- append(list_of_z_d_sites, num_z_d_sites/length(unique(chcklsts$site)))
   }
   return(list_of_z_d_sites)
 }

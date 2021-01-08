@@ -65,7 +65,7 @@ kmsq.MSE <- function(WETA_df, rad_m, graph = FALSE, filter = TRUE, enforce_fp = 
   
   checklists_df <- WETA.albers@data
   # checklists_df <- enforceClosure(checklists_df, covObj$siteCovs, checklists_df$site)
-  # kmSqObj <- calcOccMSE(checklist_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = TRUE, enforce_false_positives = F, skip_closure = T)
+  kmSqObj <- calcOccMSE(checklists_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = TRUE, enforce_false_positives = F, skip_closure = F)
 
-  return(checklists_df)
+  return(kmSqObj)
 }

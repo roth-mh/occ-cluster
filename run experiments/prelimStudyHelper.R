@@ -14,10 +14,17 @@ ClusterPurity <- function(clusters, classes) {
 }
 
 bundleStats <- function(pred_sites, og_sites, mse, z_d_sites, is_eBird=F){
+  # Calculates and bundles the statistics of the predicted sites and the
+  # original sites into a single object
+  
+  # is_eBird is a flag to determine if the df is the eBird best practices
+  # because, if so, there are fewer sites and some of these statistics
+  # cannot be applied
+  
   cmethods = c("jaccard", "mmm", "vi", "overlap", "nmi1")
   if(is_eBird){
     m <- mclustcomp(og_sites, og_sites, types=cmethods)
-    clust_m_list <- makeMeasObj(0, m, 0, mse, 0)
+    clust_m_list <- makeMeasObj(0, m, 0, mse, z_d_sites)
   }else{
     ARI <- adjustedRandIndex(og_sites, pred_sites)
     
@@ -42,7 +49,7 @@ measureDS <- function(){
   nmi <- 0
   overlap <- 0
   
-  return(list(occ=occ, det=det, ARI=ARI, p=purity, jacc=jacc, mmm=mmm, vi=vi, nmi=nmi, overlap=overlap))
+  return(list(occ=occ, det=det, ARI=ARI, p=purity, jacc=jacc, mmm=mmm, vi=vi, nmi=nmi, overlap=overlap, zds=zds))
 }
 
 addToDS <- function(ds, stats_obj){
@@ -77,7 +84,8 @@ divideDS <- function(ds, numIter){
   return(ds)
 }
 
-runIDExp <- function(kmsq_df, covObj, og_data, n_sites, geoClustAlpha=.8, occ_coef = TRUE_OCC_COEFF, det_coef = TRUE_DET_COEFF){
+runIDExp <- function(grouped_sites_df, covObj, og_data, n_sites, geoClustAlpha=.8, occ_coef = TRUE_OCC_COEFF, det_coef = TRUE_DET_COEFF){
+  # function to run the identifiability experiments (only with ClustGeo)
   
   occ_est <- 0
   i <- 0
@@ -87,7 +95,7 @@ runIDExp <- function(kmsq_df, covObj, og_data, n_sites, geoClustAlpha=.8, occ_co
     disp("iteration #", as.character(i))
     p_det <- 0
     while(p_det < .15){
-      truth_df <- populateDF(kmsq_df, covObj$siteCovs, covObj$obsCovs, unique(kmsq_df$site), occ_coef, det_coef)
+      truth_df <- populateDF(grouped_sites_df, covObj$siteCovs, covObj$obsCovs, as.character(unique(grouped_sites_df$site)), occ_coef, det_coef)
       og_data$species_observed_syn <- truth_df$species_observed_syn
       n_dets <- sum(truth_df$species_observed_syn)
       n_occ_sites <- sum(truth_df$occupied)
@@ -134,39 +142,85 @@ is_occ <- function(row, pred_form, covObj){
   }
   return(occ_prob)
 }
-
-runSingleExp <- function(truth_df, kmsq_df, covObj, og_data, n_sites, occ_coef = TRUE_OCC_COEFF, det_coef = TRUE_DET_COEFF){
-
-  kmSqMSE <- calcOccMSE(truth_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = TRUE, skip_closure = T)
+# runSingleExp <- function(base_df, covObj, og_data, n_sites, occ_coef = TRUE_OCC_COEFF, det_coef = TRUE_DET_COEFF){
+runSingleExp <- function(truth_df, covObj, og_data, n_sites, occ_coef = TRUE_OCC_COEFF, det_coef = TRUE_DET_COEFF){
+  isIdentifiable <- FALSE
+  numNotIdentifiable <- 0
+  p_det <- 0
+  # while(!isIdentifiable){
+  # while(p_det < .15){
+  #   truth_df <- populateDF(base_df, covObj$siteCovs, covObj$obsCovs, unique(base_df$site), occ_coef, det_coef)
+  #   
+  #   n_dets <- sum(truth_df$species_observed_syn)
+  #   n_occ_sites <- sum(truth_df$occupied)
+  #   
+  #   p_det <- n_dets/nrow(truth_df)
+  #   disp("number of detections: ", as.character(n_dets))
+  #   disp("% detections: ", as.character(n_dets/nrow(truth_df)))
+  #   disp("% detected given its occupied: ", as.character(n_dets/n_occ_sites))
+  # }
+  baseMSE <- calcOccMSE(truth_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = TRUE, skip_closure = T)
   ret_df <- truth_df
   # feeding in the observations but not the sites
   og_data$species_observed_syn <- truth_df$species_observed_syn
 
+  disp("kmSq ... 2x2, 1x1, .5x.5")
+  kmSq2.MSE <- kmsq.MSE(WETA_df = og_data, rad_m = 2000, filter = FALSE)
+  kmSq1.MSE <- kmsq.MSE(WETA_df = og_data, rad_m = 1000, filter = FALSE)
+  kmSq5.MSE <- kmsq.MSE(WETA_df = og_data, rad_m = 500, filter = FALSE)
+  
+  disp("km .5 occ mse is: ")
+  disp(as.character(kmSq5.MSE$mse$occ))
+  
+  li_kmSq_z_d_s <- calc_zero_det_sites(list(kmSq2.MSE$checklists, kmSq1.MSE$checklists, kmSq5.MSE$checklists))
+  
+  kmSq1Stats <- bundleStats(kmSq1.MSE$checklists, ret_df$site, kmSq1.MSE$mse, li_kmSq_z_d_s[[1]], is_eBird = T)
+  kmSq2Stats <- bundleStats(kmSq2.MSE$checklists, ret_df$site, kmSq2.MSE$mse, li_kmSq_z_d_s[[2]], is_eBird = T)
+  kmSq5Stats <- bundleStats(kmSq5.MSE$checklists, ret_df$site, kmSq5.MSE$mse, li_kmSq_z_d_s[[3]], is_eBird = T)
+  
+  li_base_z_d_s <- calc_zero_det_sites(list(baseMSE$checklists))
+  
+  baseStats <- bundleStats(baseMSE$checklists, ret_df$site, baseMSE$mse, li_base_z_d_s[[1]], is_eBird = T)
+
   disp("clustGeo ... alpha & sites")
   clustGeoAlpha_obj <- runSingleClustGeoAlpha(truth_df, covObj, og_data, n_sites=599)
   clustGeoSites_obj <- runSingleClustGeoSites(truth_df, covObj, og_data, alpha=.8)
+  #################
+  # DO NOT DELETE #
+  #################
+    # # check if this arrangment is identifiable... space for more research
+    # if(clustGeoAlpha_obj$clust5$mse$occ > 200){
+    #   disp(as.character(clustGeoAlpha_obj$clust5$mse$occ))
+    #   disp("NOT IDENTIFIABLE...rerunning")
+    #   isIdentifiable <- FALSE
+    #   numNotIdentifiable <- numNotIdentifiable + 1
+    #   p_det <- 0
+    # } else {
+    #   isIdentifiable <- TRUE
+    # }
+  # }
   
   disp("SKATER!!")
   SKATERSites_obj <- runSingleSKATERSites(truth_df, covObj, og_data)
-  
+
   disp("dbscan ... eps & minPts")
   dbscan.eps <- runSingleDBSCAN.eps(truth_df, covObj, og_data, minPts = 6)
   dbscan.minPts <- runSingleDBSCAN.minPts(truth_df, covObj, og_data, eps = .001)
-  
+
   disp("DBSC!")
   DBSC_df <- runDBSC(og_data, covObj)
   DBSC_MSE <- calcOccMSE(
-    sites_df = DBSC_df, 
-    covariate_object = covObj, 
-    true_occ_coefficients = TRUE_OCC_COEFF, 
-    true_det_coefficients = TRUE_DET_COEFF, 
+    sites_df = DBSC_df,
+    covariate_object = covObj,
+    true_occ_coefficients = TRUE_OCC_COEFF,
+    true_det_coefficients = TRUE_DET_COEFF,
     syn_spec = TRUE
   )
-  
+
   li_DBSC_z_d_s <- calc_zero_det_sites(list(DBSC_MSE$checklists))
-  
-  DBSCStats <- bundleStats(DBSC_MSE$checklists$site, ret_df$site, DBSC_MSE$mse, li_DBSC_z_d_s[1], is_eBird = F)
-  
+
+  DBSCStats <- bundleStats(DBSC_MSE$checklists$site, ret_df$site, DBSC_MSE$mse, li_DBSC_z_d_s[[1]], is_eBird = F)
+
   
   ##########
   # filter into sites
@@ -209,29 +263,32 @@ runSingleExp <- function(truth_df, kmsq_df, covObj, og_data, n_sites, occ_coef =
   
   li_eBird_z_d_s <- calc_zero_det_sites(list(eBird_MSE$checklists))
   li_round_z_d_s <- calc_zero_det_sites(list(rounded_MSE$checklists))
-  li_kmSq_z_d_s <- calc_zero_det_sites(list(kmSqMSE$checklists))
-  
-  eBirdStats <- bundleStats(eBird_MSE$checklists$site, ret_df$site, eBird_MSE$mse, li_eBird_z_d_s, is_eBird=T)
-  roundStats <- bundleStats(rounded_MSE$checklists$site, ret_df$site, rounded_MSE$mse, li_round_z_d_s)
 
-  kmSqStats <- bundleStats(kmSqMSE$checklists, ret_df$site, kmSqMSE$mse, li_kmSq_z_d_s, is_eBird = T)
+  eBirdStats <- bundleStats(eBird_MSE$checklists$site, ret_df$site, eBird_MSE$mse, li_eBird_z_d_s[[1]], is_eBird=T)
+  roundStats <- bundleStats(rounded_MSE$checklists$site, ret_df$site, rounded_MSE$mse, li_round_z_d_s[[1]])
+
   
-  
-  return(list(kmSq=kmSqStats,
+  return(list(base=baseStats,
+              kmSq2=kmSq2Stats,kmSq1=kmSq1Stats,kmSq5=kmSq5Stats,
               eBird=eBirdStats, rounded=roundStats, 
               clust8=clustGeoAlpha_obj$clust8, clust5=clustGeoAlpha_obj$clust5, clust2=clustGeoAlpha_obj$clust2,
               clust900=clustGeoSites_obj$clust900, clust600=clustGeoSites_obj$clust600, clust300=clustGeoSites_obj$clust300,
               SKATER900=SKATERSites_obj$SKATER900, SKATER600=SKATERSites_obj$SKATER600, SKATER300=SKATERSites_obj$SKATER300,
               dbscan1=dbscan.eps$dbscan1, dbscan01=dbscan.eps$dbscan01, dbscan001=dbscan.eps$dbscan001,
               dbscan3=dbscan.minPts$dbscan3, dbscan6=dbscan.minPts$dbscan6, dbscan9=dbscan.minPts$dbscan9,
-              DBSC=DBSCStats))
+              DBSC=DBSCStats, numNotIdentifiable=numNotIdentifiable))
   
 }
 
 
-runMultExp <- function(kmsq_df, covObj, numIter, og_data, n_sites, geoClustAlpha=.8, occ_coef = TRUE_OCC_COEFF, det_coef = TRUE_DET_COEFF){
+runMultExp <- function(base_df, covObj, numIter, og_data, n_sites, geoClustAlpha=.8, occ_coef = TRUE_OCC_COEFF, det_coef = TRUE_DET_COEFF){
   eBird_DS <- measureDS()
   round_DS <- measureDS()
+  base_DS <- measureDS()
+  
+  kmSq2_DS <- measureDS()
+  kmSq1_DS <- measureDS()
+  kmSq5_DS <- measureDS()
   
   clust8_DS <- measureDS()
   clust5_DS <- measureDS()
@@ -253,35 +310,26 @@ runMultExp <- function(kmsq_df, covObj, numIter, og_data, n_sites, geoClustAlpha
   dbscan01_DS <- measureDS()
   dbscan001_DS <- measureDS()
   
-  kmSq_DS <- measureDS()
-  
   DBSC_DS <- measureDS()
+  
+  numNotIdentifiable <- 0
   
   for(iter in 1:numIter){
     disp("beginning iteration #", iter)
-    p_det <- 0
-    while(p_det < .15){
-      truth_df <- populateDF(kmsq_df, covObj$siteCovs, covObj$obsCovs, unique(kmsq_df$site), occ_coef, det_coef)
-      
-      n_dets <- sum(truth_df$species_observed_syn)
-      n_occ_sites <- sum(truth_df$occupied)
-      
-      p_det <- n_dets/nrow(truth_df)
-      disp("number of detections: ", as.character(n_dets))
-      disp("% detections: ", as.character(n_dets/nrow(truth_df)))
-      disp("% detected given its occupied: ", as.character(n_dets/n_occ_sites))
-    }
-    
-    ret_obj <- runSingleExp(truth_df, kmsq_df, covObj = covObj, og_data, n_sites)
-    MAX_OBS = 10
-    ret_obj2 <- runSingleExp(truth_df, kmsq_df, covObj = covObj, og_data, n_sites)
-    MAX_OBS = 100000
-    
+    ret_obj <- runSingleExp(base_df, covObj = covObj, og_data, n_sites)
+    disp("num unidentifiable for pvs iteration: ", ret_obj$numNotIdentifiable)
+    disp("total num unidentifiable: ", numNotIdentifiable)
+    numNotIdentifiable <- numNotIdentifiable + ret_obj$numNotIdentifiable
     ################
     # max_obs_100000
     ################
     eBird_DS <- addToDS(eBird_DS, ret_obj$eBird)
     round_DS <- addToDS(round_DS, ret_obj$rounded)
+    base_DS <- addToDS(base_DS, ret_obj$base)
+    
+    kmSq2_DS <- addToDS(kmSq2_DS, ret_obj$kmSq2)
+    kmSq1_DS <- addToDS(kmSq1_DS, ret_obj$kmSq1)
+    kmSq5_DS <- addToDS(kmSq5_DS, ret_obj$kmSq5)
     
     clust8_DS <- addToDS(clust8_DS, ret_obj$clust8)
     clust5_DS <- addToDS(clust5_DS, ret_obj$clust5)
@@ -304,37 +352,7 @@ runMultExp <- function(kmsq_df, covObj, numIter, og_data, n_sites, geoClustAlpha
     dbscan001_DS <- addToDS(dbscan001_DS, ret_obj$dbscan001)
     DBSC_DS <- addToDS(DBSC_DS, ret_obj$DBSC)
     
-    kmSq_DS <- addToDS(kmSq_DS, ret_obj$kmSq)
     ################
-    
-    ################
-    # max_obs_10
-    ################
-    eBird_DS2 <- addToDS(eBird_DS2, ret_obj2$eBird)
-    round_DS2 <- addToDS(round_DS2, ret_obj2$rounded)
-
-    clust8_DS2 <- addToDS(clust8_DS2, ret_obj2$clust8)
-    clust5_DS2 <- addToDS(clust5_DS2, ret_obj2$clust5)
-    clust2_DS2 <- addToDS(clust2_DS2, ret_obj2$clust2)
-
-    clust900_DS2 <- addToDS(clust900_DS2, ret_obj2$clust900)
-    clust600_DS2 <- addToDS(clust600_DS2, ret_obj2$clust600)
-    clust300_DS2 <- addToDS(clust300_DS2, ret_obj2$clust300)
-
-    SKATER900_DS2 <- addToDS(SKATER900_DS2, ret_obj2$SKATER900)
-    SKATER600_DS2 <- addToDS(SKATER600_DS2, ret_obj2$SKATER600)
-    SKATER300_DS2 <- addToDS(SKATER300_DS2, ret_obj2$SKATER300)
-    
-    dbscan3_DS2 <- addToDS(dbscan3_DS2, ret_obj2$dbscan3)
-    dbscan6_DS2 <- addToDS(dbscan6_DS2, ret_obj2$dbscan6)
-    dbscan9_DS2 <- addToDS(dbscan9_DS2, ret_obj2$dbscan9)
-    
-    dbscan1_DS2 <- addToDS(dbscan1_DS2, ret_obj2$dbscan1)
-    dbscan01_DS2 <- addToDS(dbscan01_DS2, ret_obj2$dbscan01)
-    dbscan001_DS2 <- addToDS(dbscan001_DS2, ret_obj2$dbscan001)
-    DBSC_DS2 <- addToDS(DBSC_DS2, ret_obj$DBSC)
-    
-    kmSq_DS2 <- addToDS(kmSq_DS2, ret_obj$kmSq)
   }  
   
   ################
@@ -342,6 +360,11 @@ runMultExp <- function(kmsq_df, covObj, numIter, og_data, n_sites, geoClustAlpha
   ################
   eBird_DS <- divideDS(eBird_DS, numIter)
   round_DS <- divideDS(round_DS, numIter)
+  base_DS <- divideDS(base_DS, numIter)
+  
+  kmSq2_DS <- divideDS(kmSq2_DS, numIter)
+  kmSq1_DS <- divideDS(kmSq1_DS, numIter)
+  kmSq5_DS <- divideDS(kmSq5_DS, numIter)
   
   clust8_DS <- divideDS(clust8_DS, numIter)
   clust5_DS <- divideDS(clust5_DS, numIter)
@@ -365,53 +388,13 @@ runMultExp <- function(kmsq_df, covObj, numIter, og_data, n_sites, geoClustAlpha
   
   DBSC_DS <- divideDS(DBSC_DS, numIter)
   
-  kmSq_DS <- divideDS(kmSq_DS, numIter)
-  
-  ################
-  # max_obs_10
-  ################
-  eBird_DS <- divideDS(eBird_DS2, numIter)
-  round_DS <- divideDS(round_DS2, numIter)
-  
-  clust8_DS2 <- divideDS(clust8_DS2, numIter)
-  clust5_DS2 <- divideDS(clust5_DS2, numIter)
-  clust2_DS2 <- divideDS(clust2_DS2, numIter)
-  
-  clust900_DS2 <- divideDS(clust900_DS2, numIter)
-  clust600_DS2 <- divideDS(clust600_DS2, numIter)
-  clust300_DS2 <- divideDS(clust300_DS2, numIter)
-  
-  SKATER900_DS2 <- divideDS(SKATER900_DS2, numIter)
-  SKATER600_DS2 <- divideDS(SKATER600_DS2, numIter)
-  SKATER300_DS2 <- divideDS(SKATER300_DS2, numIter)
-  
-  dbscan3_DS2 <- divideDS(dbscan3_DS2, numIter)
-  dbscan6_DS2 <- divideDS(dbscan6_DS2, numIter)
-  dbscan9_DS2 <- divideDS(dbscan9_DS2, numIter)
-  
-  dbscan1_DS2 <- divideDS(dbscan1_DS2, numIter)
-  dbscan01_DS2 <- divideDS(dbscan01_DS2, numIter)
-  dbscan001_DS2 <- divideDS(dbscan001_DS2, numIter)
-  
-  DBSC_DS2 <- divideDS(DBSC_DS2, numIter)
-  
-  kmSq_DS2 <- divideDS(kmSq_DS2, numIter)
-  
-  
-  return(list(max_obs_100000=list(kmSq=kmSq_DS,
+  return(list(base=base_DS,
+              kmSq2=kmSq2_DS,kmSq1=kmSq1_DS,kmSq5=kmSq5_DS,
               eBird=eBird_DS, round=round_DS, 
               clust1=clust8_DS, clust5=clust5_DS, clust0=clust2_DS,
               clust900=clust900_DS, clust600=clust600_DS, clust300=clust300_DS,
               SKATER900=SKATER900_DS, SKATER600=SKATER600_DS, SKATER300=SKATER300_DS,
               dbscan3=dbscan3_DS, dbscan6=dbscan6_DS, dbscan9=dbscan9_DS,
               dbscan1=dbscan1_DS, dbscan01=dbscan01_DS, dbscan001=dbscan001_DS,
-              DBSC=DBSC_DS),
-              max_obs_10=list(kmSq=kmSq_DS2,
-                   eBird=eBird_DS2, round=round_DS2, 
-                   clust1=clust8_DS2, clust5=clust5_DS2, clust0=clust2_DS2,
-                   clust900=clust900_DS2, clust600=clust600_DS2, clust300=clust300_DS2,
-                   SKATER900=SKATER900_DS2, SKATER600=SKATER600_DS2, SKATER300=SKATER300_DS2,
-                   dbscan3=dbscan3_DS2, dbscan6=dbscan6_DS2, dbscan9=dbscan9_DS2,
-                   dbscan1=dbscan1_DS2, dbscan01=dbscan01_DS2, dbscan001=dbscan001_DS2,
-                   DBSC=DBSC_DS2)))
+              DBSC=DBSC_DS))
 }

@@ -32,18 +32,23 @@ runSingleClustGeoAlpha <- function(truth_df, covObj, og_data, n_sites){
   disp(clust.MSE5$mse$det)
   
   clust.MSE2 <- calcClustGeoMSE(
-    .0, 
+    0, 
     og_data, 
     covObj, 
     num_sites = n_sites, 
     enforce_false_p = FALSE
   )
   
+  disp("clust Geo 0 occ")
+  disp(clust.MSE2$mse$occ)
+  disp("clust Geo 0 det")
+  disp(clust.MSE2$mse$det)
+  
   li_z_d_s <- calc_zero_det_sites(list(clust.MSE8$checklists, clust.MSE5$checklists, clust.MSE2$checklists))
   
-  clust8Stats <- bundleStats(clust.MSE8$checklists$site, ret_df$site, clust.MSE8$mse, li_z_d_s[1])
-  clust5Stats <- bundleStats(clust.MSE5$checklists$site, ret_df$site, clust.MSE5$mse, li_z_d_s[2])
-  clust2Stats <- bundleStats(clust.MSE2$checklists$site, ret_df$site, clust.MSE2$mse, li_z_d_s[3])
+  clust8Stats <- bundleStats(clust.MSE8$checklists$site, ret_df$site, clust.MSE8$mse, li_z_d_s[[1]])
+  clust5Stats <- bundleStats(clust.MSE5$checklists$site, ret_df$site, clust.MSE5$mse, li_z_d_s[[2]])
+  clust2Stats <- bundleStats(clust.MSE2$checklists$site, ret_df$site, clust.MSE2$mse, li_z_d_s[[3]])
   
   
   return(list(clust8=clust8Stats, clust5=clust5Stats, clust2=clust2Stats))
@@ -80,12 +85,12 @@ runMultclustGeoAlphaExp <- function(kmsq_df, covObj, numIter, og_data, n_sites, 
 runSingleClustGeoSites <- function(truth_df, covObj, og_data, alpha){       # can do num_sites_list <- c(900,600,300)
   ret_df <- truth_df
   truth_df <- subset(truth_df, select = -c(site))
-  
+  # changed 12/29; giving clustGeo the correct number of sites
   clust.MSE900 <- calcClustGeoMSE(
     alpha, 
     og_data, 
     covObj, 
-    num_sites = 900, 
+    num_sites = 827, 
     enforce_false_p = FALSE
   )
   
@@ -107,9 +112,9 @@ runSingleClustGeoSites <- function(truth_df, covObj, og_data, alpha){       # ca
   
   li_z_d_s <- calc_zero_det_sites(list(clust.MSE900$checklists, clust.MSE600$checklists, clust.MSE300$checklists))
   
-  clust900Stats <- bundleStats(clust.MSE900$checklists$site, ret_df$site, clust.MSE900$mse, li_z_d_s[1])
-  clust600Stats <- bundleStats(clust.MSE600$checklists$site, ret_df$site, clust.MSE600$mse, li_z_d_s[2])
-  clust300Stats <- bundleStats(clust.MSE300$checklists$site, ret_df$site, clust.MSE300$mse, li_z_d_s[3])
+  clust900Stats <- bundleStats(clust.MSE900$checklists$site, ret_df$site, clust.MSE900$mse, li_z_d_s[[1]])
+  clust600Stats <- bundleStats(clust.MSE600$checklists$site, ret_df$site, clust.MSE600$mse, li_z_d_s[[2]])
+  clust300Stats <- bundleStats(clust.MSE300$checklists$site, ret_df$site, clust.MSE300$mse, li_z_d_s[[3]])
   
   
   return(list(clust900=clust900Stats, clust600=clust600Stats, clust300=clust300Stats))
