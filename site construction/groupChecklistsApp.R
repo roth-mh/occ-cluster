@@ -1,10 +1,11 @@
 library(leaflet)
 library(shiny)
 library(geosphere)
+library(sf)
 
-setwd("/Users/MarkRoth/Documents/Oregon State/Research/")
-source("eBird/occ and grouping checklists/occ-cluster/helper/helpers.R")
-f_name <- "clusteredSites_2020-12-26_.csv"
+# setwd("/Users/MarkRoth/Documents/Oregon State/Research/")
+source("helper/helpers.R")
+f_name <- "../../../clusteredSites_2020-12-26_.csv"
 clusted_sites <- read.delim(f_name, sep=",")
 
 # 
@@ -13,7 +14,7 @@ clusted_sites <- read.delim(f_name, sep=",")
 # WETA_2017_region <- subset(WETA_2017, WETA_2017$latitude <= 44.5)
 # WETA_2017_region <- subset(WETA_2017_region, WETA_2017_region$longitude <= -123)
 # 
-f_in_syn_spec_form <- "eBird/Class Imbalance/generate syn spec/data/linear/syn_species_1_formula.txt"
+f_in_syn_spec_form <- "../../../eBird/Class Imbalance/generate syn spec/data/linear/syn_species_1_formula.txt"
 covObj <- loadCovariates(f_in_syn_spec_form)
 # MIN_OBS <- 1
 # MAX_OBS <- 100000
@@ -39,8 +40,9 @@ covObj <- loadCovariates(f_in_syn_spec_form)
 # unique_location_checklists$site_area <- 0
 # unique_location_checklists$site_max_dist <- 0
 
-unique_location_checklists <- clusted_sites
-unique_location_checklists$site <- as.character(unique_location_checklists$site)
+# unique_location_checklists <- clusted_sites
+# unique_location_checklists$site <- as.character(unique_location_checklists$site)
+
 
 color_li <- colorNumeric(palette = c("orange"), domain=seq(length(unique(unique_location_checklists$site))))
 # cf <- colorFactor(topo.colors(length(clusted_sites$site) - length(unique(clusted_sites$site))), clusted_sites$site)
@@ -244,5 +246,36 @@ runMap <- function(){
   shinyApp(ui, server)
 }
 df_pls <- runApp(runMap())
-write.csv(df_pls, file=paste("clusteredSites", Sys.Date(), ".csv", sep="_"))
+# write.csv(df_pls, file=paste("clusteredSites", Sys.Date(), ".csv", sep="_"))
+
+
+
+
+
+#####
+# visualize the sites
+#####
+sites_to_viz <- DBSC.sites
+
+l <- leaflet() %>% addTiles() %>%
+  addCircleMarkers(
+    fillColor = c_func(sites_to_viz$site),
+    fillOpacity = .7,
+    lng=sites_to_viz$longitude,
+    lat=sites_to_viz$latitude,
+    # data=unique_location_checklists$checklist_id,
+    popup = paste0(as.character(sites_to_viz$site)),
+    options = popupOptions(closeOnClick = FALSE)
+  ) %>% addScaleBar(position = "bottomright") %>%
+  addProviderTiles('Esri.WorldImagery') 
+
+for(s in unique(sites_to_viz$site)){
+  set_of_pts <- sites_to_viz[sites_to_viz$site == s,]
+  # disp(x$site)
+  ch_open <- chull(set_of_pts[c('latitude', 'longitude')])
+  ch <- c(ch_open, ch_open[1])
+  edge_pts <- set_of_pts[ch,]
+  l <- l %>% addPolygons(lng=edge_pts$longitude, lat=edge_pts$latitude, fillColor = 'red', fillOpacity = .75)
+}
+l
 

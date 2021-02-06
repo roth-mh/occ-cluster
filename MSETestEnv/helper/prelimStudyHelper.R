@@ -84,7 +84,7 @@ divideDS <- function(ds, numIter){
   return(ds)
 }
 
-runIDExp <- function(og_data, truth_df, covObj, geoClustAlpha=.8, occ_coeff, det_coeff, list_of_tests){
+runIDExp <- function(og_data, truth_df, covObj, geoClustAlpha=.8, occ_coeff, det_coeff){
   og_data$species_observed_syn <- truth_df$species_observed_syn
   
   # function to run the identifiability experiments (only with ClustGeo, varying num sites)
@@ -95,61 +95,6 @@ runIDExp <- function(og_data, truth_df, covObj, geoClustAlpha=.8, occ_coeff, det
   baseMSE <- calcOccMSE(truth_df, covObj, occ_coeff, det_coeff, syn_spec = TRUE, skip_closure = T)
   # determine occupancy estimates
   return(list(cg9.MSE=CG9_occ_est, cg6.MSE=CG6_occ_est, base.MSE=baseMSE$mse$occ))
-}
-
-###########
-# Exps for checking eBird vs. all lat/long pts
-###########
-
-# TODO: find a better architecture solution for this 
-# NEED TO MAKE SURE THE ORDER OF THE TESTS MATCH
-runeBirdExp <- function(og_data, truth_df, covObj, occ_coeff, det_coeff, list_of_tests){
-  og_data$species_observed_syn <- truth_df$species_observed_syn
-  
-  # function to run the identifiability experiments (only with ClustGeo, varying num sites)
-  sites_ebird_filter <- filter_repeat_visits(
-    og_data,
-    min_obs = 2,
-    max_obs = 10,
-    annual_closure = TRUE,
-    date_var = "formatted_date",
-    site_vars = c("locality_id", "observer_id")
-  )
-  
-  eBird_MSE <- calcOccMSE(
-    sites_df = sites_ebird_filter,
-    covariate_object = covObj,
-    true_occ_coefficients = TRUE_OCC_COEFF,
-    true_det_coefficients = TRUE_DET_COEFF,
-    syn_spec = TRUE
-  )
-  
-  # a grouping only on same lat/long pairs
-  ebird_same_loca <- filter_repeat_visits(
-    og_data,
-    min_obs = 1,
-    max_obs = 100000,
-    annual_closure = TRUE,
-    date_var = "formatted_date",
-    site_vars = c("latitude", "longitude")
-  )
-  
-  simpleGrouped_MSE <- calcOccMSE(
-    sites_df = ebird_same_loca,
-    covariate_object = covObj,
-    true_occ_coefficients = TRUE_OCC_COEFF,
-    true_det_coefficients = TRUE_DET_COEFF,
-    syn_spec = TRUE
-  )
-  
-  baseMSE <- calcOccMSE(truth_df, covObj, occ_coeff, det_coeff, syn_spec = TRUE, skip_closure = T)
-  # determine occupancy estimates
-  res_hash <- hash()
-  res_hash[[list_of_tests[[1]]]] <- baseMSE$mse$occ
-  res_hash[[list_of_tests[[2]]]] <- eBird_MSE$mse$occ
-  res_hash[[list_of_tests[[3]]]] <- simpleGrouped_MSE$mse$occ
-  
-  return(res_hash)
 }
 
 is_occ <- function(row, pred_form, covObj){

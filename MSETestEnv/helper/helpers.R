@@ -203,7 +203,7 @@ siteStatsDt <- function(sites_df, covObj){
 #   1. constant site covariates
 #   2. no false positives (detected only if occupied)
 ##########
-enforceClosure <- function(sites_df, occ_cov_list, sites_list){
+enforceClosure <- function(sites_df, occ_cov_list, sites_list, enforce_false_positives = TRUE){
   j<-0
   count <- 0
   # for(eBird_site in 1:numSites){  # for clust geo
@@ -334,13 +334,13 @@ add_to_summary <- function(res_obj, final_s, TRUE_OCC_COEFF, TRUE_DET_COEFF){
 #   5. calculates difference in estimated generative model
 #       and true generative model
 ##########
-calcOccMSE <- function(sites_df_occ, covariate_object, true_occ_coefficients, true_det_coefficients, syn_spec=FALSE, skip_closure=FALSE){
+calcOccMSE <- function(sites_df_occ, covariate_object, true_occ_coefficients, true_det_coefficients, syn_spec=FALSE, enforce_false_positives=TRUE, skip_closure = FALSE){
   sites_occ <- subset(sites_df_occ, !duplicated(site))$site
   # this (v v) function is synthetic species specific
   if(skip_closure){
     closed_df <- sites_df_occ
   } else {
-    closed_df <- enforceClosure(sites_df_occ, covariate_object$siteCovs, sites_occ)
+    closed_df <- enforceClosure(sites_df_occ, covariate_object$siteCovs, sites_occ, enforce_false_positives)
   }
   
   if(syn_spec){
@@ -422,42 +422,4 @@ calc_zero_det_sites <- function(list_of_checklists){
 }
 
 
-load.WETA <- function(all=FALSE){
-  f_in_WETA <- "../../../ICB General/data generation/2017_UPDATED_COVS_df.csv"
-  WETA_2017_all <- read.delim(f_in_WETA, header=TRUE, sep = ",")
-  # WETA_2017 <- groomDataframe(WETA_2017, covObj$det_cov, covObj$occ_cov, syn_spec = T)
-  f_in_syn_spec_form <- "../../Class Imbalance/generate syn spec/data/linear/syn_species_1_formula.txt"
-  covObj <- loadCovariates(f_in_syn_spec_form)
-  covObj$siteCovs <- as.character(c("fall_nbr_TCA_mean_75", 
-                                    "fall_nbr_B4_stdDev_150", 
-                                    "elevation_stdDev_150", 
-                                    "spring_nbr_B7_stdDev_300", 
-                                    "aspect_mean_300"))
-  WETA_2017_region <- subset(WETA_2017_all, WETA_2017_all$latitude <= 44.5)
-  WETA_2017_region <- subset(WETA_2017_region, WETA_2017_region$longitude <= -123)
-  WETA_2017 <- WETA_2017_region
-  if(all){
-    return(list(WETA_2017_all, covObj))
-  }
-  return(list(WETA_2017, covObj))
-}
-
-
-load.WETA_filtered <- function(WETA_2017){
-  f_name <- "../../../clusteredSites_2020-12-26_.csv"
-  clusted_sites <- read.delim(f_name, sep=",")
-  WETA_filtered <- WETA_2017
-  WETA_filtered$site <- -1
-  WETA_filtered$det_prob <- -1
-  
-  # link sites with their respective checklists
-  for(row in 1:nrow(WETA_filtered)){
-    # disp(row)
-    long <- WETA_filtered[row, ]$longitude
-    lat <- WETA_filtered[row, ]$latitude
-    site_obj <- clusted_sites[clusted_sites$longitude == long & clusted_sites$latitude == lat,]
-    WETA_filtered[row,]$site <- as.character(site_obj$site)
-  }
-  return(WETA_filtered)
-}
 

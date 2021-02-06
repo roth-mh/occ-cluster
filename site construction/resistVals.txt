@@ -1,0 +1,23 @@
+############################################
+# ? # x == 0 ~  "no value?",
+# 3 # x == 11 ~ "water",
+# 1 # x == 12 ~ "snow",
+# 2 # x == 21 ~ "developed/open space",
+# 3 # x == 22 ~ "developed, low intensity",
+# 4 # x == 23 ~ "developed, medium intensity",
+# 5 # x == 24 ~ "developed, high intensity",
+# 1 # x == 31 ~ "barren land (rock/sand/clay)",
+# 5 # x == 41 ~ "deciduous forest",
+# 5 # x == 42 ~ "evergreen forest",
+# 5 # x == 43 ~ "mixed forest",
+# 3 # x == 51 ~ "dwarf shrub",
+# 3 # x == 52 ~ "shrub/scrub",
+# 3 # x == 71 ~ "grassland/herbaceous",
+# 3 # x == 72 ~ "sedge/herbaceous",
+# 2 # x == 73 ~ "lichens",
+# 2 # x == 74 ~ "moss",
+# 1 # x == 81 ~ "pasture/hay",
+# 2 # x == 82 ~ "cultivated crops",
+# 3 # x == 90 ~ "woody wetlands",
+# 3 # x == 95 ~ "emergent herbaceous wetlands"
+############################################
