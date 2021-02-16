@@ -59,7 +59,7 @@ calcGlobalMeanSD <- function(DT, attr_df){
 #   gdc = globalmean + (globalmean/localmean(v))*globalSD
 # if so, e_v is removed from DT
 removeGlobalLongEdges <- function(DT, globalMean, globalSD, edgeWts, DT_graph){
-  gdt.v <- as_data_frame(DT_graph, what = "vertices") %>% setDT()
+  gdt.v <- igraph::as_data_frame(DT_graph, what = "vertices") #%>% setDT()
   edg_att <- get.edge.attribute(DT_graph)
   
   to_delete_edge_ids <- c()
@@ -137,7 +137,7 @@ removeLongLocalEdges <- function(de, Beta=2){
     edg_att <- igraph::edge.attributes(g)
     to_delete_edge_ids <- c()
     j <- j + 1
-    gdt.v <- as_data_frame(g, what = "vertices") %>% setDT()
+    gdt.v <- igraph::as_data_frame(g, what = "vertices") %>% setDT()
     if(length(gdt.v$name) > 1){
       paths_in_2 <- make_ego_graph(g, order=2)
       
@@ -209,7 +209,7 @@ calcT1 <- function(de){
   colnames(min_edge_df) <- c("edge_id", "edge_dist")
   for(g in de){
     
-    v_df <- as_data_frame(g, what = "vertices") %>% setDT()
+    v_df <- igraph::as_data_frame(g, what = "vertices") %>% setDT()
     edg_att <- igraph::edge.attributes(g)
     
     if(length(edg_att$d) != 0){
@@ -314,7 +314,7 @@ calcDI.DF <- function(new_graphs, T1){
   for(g in new_graphs){
     g_num <- g_num + 1
     # for each vertex
-    v_df <- as_data_frame(g, what = "vertices") %>% setDT()
+    v_df <- igraph::as_data_frame(g, what = "vertices") %>% setDT()
     for(i in 1:nrow(v_df)){
       di <- calcDensityIndicator(v_df[i,]$name, g, v_df, T1)
       
@@ -366,7 +366,7 @@ select.SPCC <- function(sorted_DI, new_graphs){
 
 isSpatiallyReachable <- function(v_name, CLU_names, g, v_pts, T1){
   
-  v_df <- as_data_frame(g, what = "vertices") %>% setDT()
+  v_df <- igraph::as_data_frame(g, what = "vertices") %>% setDT()
   
   nghbrs <- neighbors(g, v_name)$name
   v_pts_no_checklist <- subset(v_pts, select = -c(checklist_id))

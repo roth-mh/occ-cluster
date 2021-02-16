@@ -7,17 +7,27 @@
 # Calculates the MSE of ClustGeo Grouping Algorithm
 #######
 calcClustGeoMSE <- function(alpha, checklists, covObj, occ_coeff, det_coeff, num_sites=NULL, ratio=NULL, filter = TRUE){
-  if(is.null(num_sites) && is.null(ratio)){
-    disp("NEED TO SPECIFY EITHER THE NUMBER OF SITES OR THE NUMBER OF CHECKLISTS/SITE")
-    stopifnot(1 == 0)
-  }
+  checklists <- clustGeoSites(alpha, checklists, covObj, num_sites=NULL, ratio=NULL, filter = TRUE)
+
+  clustGeo_MSE <- calcOccMSE(sites_df = checklists,
+                             covariate_object = covObj,
+                             true_occ_coefficients = occ_coeff,
+                             true_det_coefficients = det_coeff,
+                             syn_spec = TRUE,
+                             enforce_false_positives = TRUE
+  )
   
+  return(clustGeo_MSE)
+}
+
+
+clustGeoSites <- function(alpha, checklists, covObj, num_sites=NULL, ratio=NULL, filter = TRUE){
   # obsolete code
   if(filter){
     checklists <- filter_repeat_visits(
       checklists,
-      min_obs = MIN_OBS, 
-      max_obs = MAX_OBS,
+      min_obs = 1, 
+      max_obs = 100000000,
       annual_closure = TRUE,
       date_var = "formatted_date",
       site_vars = c("locality_id")
@@ -38,17 +48,10 @@ calcClustGeoMSE <- function(alpha, checklists, covObj, occ_coeff, det_coeff, num
   checklists_filtered$site <- part
   
   checklists <- data.frame(checklists_filtered)
-
-  clustGeo_MSE <- calcOccMSE(sites_df = checklists,
-                             covariate_object = covObj,
-                             true_occ_coefficients = occ_coeff,
-                             true_det_coefficients = det_coeff,
-                             syn_spec = TRUE,
-                             enforce_false_positives = TRUE
-  )
-  
-  return(clustGeo_MSE)
+  return(checklists)
 }
+
+
 
 
 #######

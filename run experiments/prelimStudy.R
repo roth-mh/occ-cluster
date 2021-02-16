@@ -43,7 +43,6 @@ WETA_2017 <- WETA_2017_region
 
 # WETA_2017_all[order(as.Date(WETA_2017_all$as_date, format="%Y-%m-%d")),][nrow(WETA_2017_all),]
 
-
 # WETA_2017 <- WETA_2017_region
 # plot(x = WETA_2017_all$longitude, y = WETA_2017_all$latitude, main = "2017 eBird Checklists of Oregon")
 # points(x=WETA_2017$longitude, y=WETA_2017$latitude, col="blue")

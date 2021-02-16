@@ -258,17 +258,39 @@ WETA_in_box@data
 #   theme(axis.text.x=element_text(angle = -90, hjust = 0))
 
 
-######
-# Fun plotting shortest path
-######
-xmax2 <- x_val + 5000
-xmin2 <- x_val + 3000
-ymax2 <- y_val - 3000
-ymin2 <- y_val - 4000
+# ######
+# # Fun plotting shortest path
+# ######
+# xmax2 <- x_val + 5000
+# xmin2 <- x_val + 3000
+# ymax2 <- y_val - 3000
+# ymin2 <- y_val - 4000
+# 
+# x <- shortestPath(trCorr, c(-2223031, 2553257), c(-2222893, 2553097), output="SpatialLines")
+# test_ex2 <- crop(cropped, c(xmin2, xmax2, ymin2, ymax2))
+# 
+# plot(test_ex2)
+# lines(x, col="red")
 
-x <- shortestPath(trCorr, c(-2223031, 2553257), c(-2222893, 2553097), output="SpatialLines")
-test_ex2 <- crop(cropped, c(xmin2, xmax2, ymin2, ymax2))
+####################
 
-plot(test_ex2)
-lines(x, col="red")
+
+
+
+
+
+
+####################
+# add other raster layers
+####################
+hwy_100 <- shapefile("site construction/input data/Hwy_Riv_Buffers/hwy_diss_buff_100.shp")
+
+hwy_100
+ras.OR
+
+hwy_100_trans <- spTransform(hwy_100, crs(ras.OR2))
+
+comb.r <- rasterize(hwy_100_trans, ras.OR)
+
+comb.r
 
