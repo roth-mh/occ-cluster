@@ -1,6 +1,8 @@
 # AGG Clustering Helper Fcn
 
 library(gtools)
+library(mclustcomp)
+library(cluster)
 
 ##########
 # checklist similarity
@@ -9,19 +11,6 @@ library(gtools)
 #     in the other clustering
 #  - o/w returns 0
 ##########
-# clusterSimil <- function(site1, site2){
-#   if(as.character(site1[[1]]) == as.character(site1[[2]]) & 
-#      as.character(site2[[1]]) != as.character(site2[[2]])){
-#     return(1)
-#   }
-#   if(as.character(site1[[1]]) != as.character(site1[[2]]) &
-#      as.character(site2[[1]]) == as.character(site2[[2]])){
-#     return(1)
-#   }
-#   return(0)
-# }
-
-
 checklistSimil <- function(site1, site2){
   if(as.character(site1[[1]]) == as.character(site1[[2]]) & 
      as.character(site2[[1]]) == as.character(site2[[2]])){
@@ -29,9 +18,6 @@ checklistSimil <- function(site1, site2){
   }
   return(1)
 }
-
-
-
 
 ##########
 # cluster similarity
@@ -82,8 +68,6 @@ clusterSimil <- function(sites.DF, ignoreFirstCol){
   return(distMat)
 }
 
-
-
 case1 <- function(sites){
   if(length(unique(sites)) > 1){
     return(FALSE)
@@ -118,8 +102,6 @@ chainSites <- function(over, proj_cent, site_num){
   proj_cent[proj_cent$site %in% unique(buffer_sites),]$site <- site_num
   return(proj_cent)
 }
-
-
 
 
 ######
@@ -203,13 +185,14 @@ ballsAggr <- function(dMat, v_list, ALPHA = .4, BETA = .5){
 ###
 setClass("Cluster", slots = list(name="numeric", objects="numeric", closest="numeric", min_dist="numeric"))
 
-agglCluster <- function(dMat){
+agglCluster <- function(dMat, l){
   aggl_sites <- as.data.frame(matrix(data = c(seq(1:nrow(dMat)), seq(1:nrow(dMat))), nrow = nrow(dMat), ncol = 2))
   colnames(aggl_sites) <- c("vertex", "site")
   
   # initialize objects with each being in their own cluster
   CLUSTERS <- list()
   cluster_name <- 1
+  
   for(v in aggl_sites$vertex){
     new_c <- new("Cluster", name=cluster_name, objects=c(v), closest=-1, min_dist=-1)
     CLUSTERS <- append(CLUSTERS, new_c)
@@ -226,33 +209,53 @@ agglCluster <- function(dMat){
   }
   
   idx <- find_min_dist(n_CLUSTERS)
-  while(n_CLUSTERS[[idx]]@min_dist < .5){
+  ptm <- proc.time()
+  if(l == 318){
+    disp("breaktime")
+  }
+  i<-1
+  while(n_CLUSTERS[[idx]]@min_dist <= .5){
+    disp("iteraion #", i)
     new_CLUSTERS <- mergeClusters(n_CLUSTERS, dMat, n_CLUSTERS[[idx]]@name, n_CLUSTERS[[idx]]@closest, cluster_name)
     cluster_name <- cluster_name + 1
     stopifnot(length(new_CLUSTERS) < length(n_CLUSTERS))
     
-    # recalculate the min distances ... untested
+    
+    # the code bwloe needs to be refactored, it is the
+    # bottleneck for the rest of the algorithm it
+    # takes about 1s to run and there are many runs (~100)
+    # when # unique locations is large
+    
+    # recalculate the min distances
     new_CLUSTERS2 <- list()
+    ptm_i <- proc.time()
     for(v in new_CLUSTERS){
+      # if(v@closest n_CLUSTERS[[idx]]@objects)
+      # if v's objects and the newly combined objects
+      # have a non-0 intersection, do this... o/w
+      # skip it
+        
+        
       min_obj <- find_min_cluster(v, new_CLUSTERS, dMat) 
       v@closest <- min_obj$clust
       v@min_dist <- min_obj$dist
       new_CLUSTERS2 <- append(new_CLUSTERS2, v)
     }
+    end <- proc.time() - ptm_i
+    disp("reCALC min dist alg duration: ", as.character(end))
     stopifnot(length(new_CLUSTERS) == length(new_CLUSTERS2))
     n_CLUSTERS <- new_CLUSTERS2
     idx <- find_min_dist(n_CLUSTERS)
     if(idx == -1){
       break
     }
+    i <- i +1
   }
+  end <- proc.time() - ptm
+  disp("while potential clusters remain alg duration: ", as.character(end))
   
   return(n_CLUSTERS)
 }
-
-
-
-
 
 
 # Merges two groups in cluster_list w/ names specified
@@ -354,12 +357,14 @@ calcMeanDist <- function(clst1, clst2, dMat){
 # then uses the true sites to populate a syn species
 # and loads those detections into the original dataset
 # # # # # # # # # # 
-prepWETA.sites <- function(WETA_2017, covObj, MDD, MIN_OBS, MAX_OBS){
+prepProj.centers <- function(WETA_2017, covObj, MDD, MIN_OBS, MAX_OBS){
   
   # Looking only at unique locations
   # bc if same location ==> same site (proof)
-  WETA_uniq <- sqldf("SELECT * FROM WETA_2017 GROUP BY latitude, longitude")
-  WETA_uniq$site <- -1
+  # ALTHOUGH TRUE, NOT ALL ALGs MAKE THIS ASSUMPTION
+  
+  # WETA_uniq <- sqldf("SELECT * FROM WETA_2017 GROUP BY latitude, longitude")
+  # WETA_2017$site <- -1
   
   ras.OR2 <- raster("~/Documents/Oregon State/Research/eBird/occ and grouping checklists/occ-cluster/site construction/input data/land cover data/OR_2020_fittedImage.tif")
   prj <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
@@ -369,7 +374,7 @@ prepWETA.sites <- function(WETA_2017, covObj, MDD, MIN_OBS, MAX_OBS){
   # reproject centroids into appropriate projection for meters
   # create buffer around each centroid of territory size
   ################
-  centroids <- st_as_sf(WETA_uniq, coords = c("longitude", "latitude"), crs=prj)
+  centroids <- st_as_sf(WETA_2017, coords = c("longitude", "latitude"), crs=prj)
   proj_cent <- st_transform(centroids, crs(ras.OR2))
   buffers <- st_buffer(proj_cent, dist = MDD)
   
@@ -379,7 +384,7 @@ prepWETA.sites <- function(WETA_2017, covObj, MDD, MIN_OBS, MAX_OBS){
   # if some are labeled (possibly some are unlabeled)
   # union them
   ########
-  i <- nrow(WETA_uniq)
+  i <- nrow(WETA_2017)
   for(b in 1:nrow(buffers)){
     buff <- buffers[b,]
     over <- proj_cent[st_intersection(buff, proj_cent),]
@@ -450,25 +455,29 @@ prepWETA.sites <- function(WETA_2017, covObj, MDD, MIN_OBS, MAX_OBS){
     WETA_filtered[row,]$site <- as.character(site_obj$site)
   }
   
-  WETA_2017$vertex <- seq(1:nrow(WETA_2017))
-  og_data <- WETA_2017
-  
-  truth_df <- populateDF(WETA_filtered, covObj$siteCovs, covObj$obsCovs, unique(WETA_filtered$site), TRUE_OCC_COEFF, TRUE_DET_COEFF)
-  og_data$species_observed_syn <- truth_df$species_observed_syn
-  
-  WETA_sites <- subset(og_data, select = c(checklist_id, vertex))
-  return(list(WETA_sites, og_data, proj_cent, truth_df))
+  return(list(proj_cent, WETA_filtered))
 }
 
 # construct many sites and join them together
-appendSites <- function(tests, WETA_sites, og_data){
+appendSites <- function(tests, WETA_sites, og_data, covObj=NA, truth_df=NA){
   
   need_L_join <- FALSE
   
   df_to_join <- list()
-  if(!is.na(tests$DBSC)){
-    DBSC_df <- runDBSC(og_data, covObj)  
-    df_to_join <- append(df_to_join, list(DBSC_df))
+  
+  if(!is.na(tests$rounded)){
+    for(i in tests$rounded){
+      WETA_2017_i <- roundLatLong(og_data, i)
+      eBird_rounded_df <- filter_repeat_visits(
+        WETA_2017_i,
+        min_obs = 1,
+        max_obs = 1000000,
+        annual_closure = TRUE,
+        date_var = "formatted_date",
+        site_vars = c("rounded_locality_id")
+      )
+      df_to_join <- append(df_to_join, list(eBird_rounded_df))
+    }
   }
   
   if(!is.na(tests$eBird)){
@@ -496,49 +505,99 @@ appendSites <- function(tests, WETA_sites, og_data){
     df_to_join <- append(df_to_join, list(eBird_simple_df))
   }
   
-  if(!is.na(tests$rounded)){
-    for(i in tests$rounded){
-      WETA_2017_i <- roundLatLong(og_data, i)
-      eBird_rounded_df <- filter_repeat_visits(
-        WETA_2017_i,
-        min_obs = 1,
-        max_obs = 1000000,
-        annual_closure = TRUE,
-        date_var = "formatted_date",
-        site_vars = c("rounded_locality_id")
-      )
-      df_to_join <- append(df_to_join, list(WETA_2017_i))
+  if(!is.na(tests$noisy_gt)){
+    prob <- tests$noisy_gt
+    nrows <- nrow(truth_df)
+    for(row in 1:nrows){
+      if(runif(1) <= prob){
+        # neighbor <- as.integer(runif(1, -10, 10))
+        # if((neighbor + row) > nrows){
+        #   neighbor <- -1
+        # }
+        # if((neighbor + row) < 1){
+        #   neighbor <- 1
+        # }
+        rand_site <- sample(seq(1:nrows), 1)
+        truth_df[row,]$site <- truth_df[rand_site,]$site
+      }  
     }
+    df_to_join <- append(df_to_join, list(truth_df))
   }
   
-  if(!is.na(tests$clustGeo)){
+  if(!is.na(tests$DBSC)){
+    DBSC_df <- runDBSC(og_data, covObj)  
+    df_to_join <- append(df_to_join, list(DBSC_df))
+  }
+  
+  if(length(tests$clustGeo) > 0){
     for(i in tests$clustGeo){
       disp(i)
       clustGeo_df_i <- clustGeoSites(alpha = i[1], og_data, covObj, num_sites = i[2])
       df_to_join <- append(df_to_join, list(clustGeo_df_i))
     }
   }
-  ######
-  if(need_L_join){
-    disp("implement nasty left join for eBird")
-    # # max_site <- 1
-    # for(row in 1:nrow(WETA_sites)){
-    #   if(is.na(WETA_sites[row,]$site4)){
-    #     WETA_sites[row,]$site4 <- max_site
-    #     max_site <- max_site + 1
-    #   }
-    # }
-    # WETA_sites <- left_join(WETA_sites, eBird_df[c("checklist_id", "site")], by="checklist_id", suffix=c("", "4"))
+  
+  if(length(tests$agnes) > 0){
+    for(i in 1:length(tests$kmeans)){
+      cpy <- og_data
+      x <- subset(cpy, select = c(covObj$siteCovs, covObj$obsCovs))
+      weta_clust <- agnes(x, method = "ward")
+      agnes.clusters <- cutree(as.hclust(weta_clust), k = tests$agnes[[i]])
+      cpy$site <- as.numeric(agnes.clusters)
+      df_to_join <- append(df_to_join, list(cpy))
+    }
   }
+  
+  if(length(tests$kmeans) > 0){
+    for(i in 1:length(tests$kmeans)){
+      cpy <- og_data
+      x <- subset(cpy, select = c(covObj$siteCovs, covObj$obsCovs))
+      kmean_res <- kmeans(x, tests$kmeans[[i]])
+      cpy$site <- as.numeric(kmean_res$cluster)
+      df_to_join <- append(df_to_join, list(cpy))  
+    }
+  }
+  
+  # need: overlap, interval
+  if(length(tests$local) > 0){
+    overlap_p <- tests$local$overlap
+    interval <- tests$local$interval
+    overlap <- as.integer(overlap_p * interval)
+    stopifnot(overlap <= interval)
+    for(i in seq(from=1, to=nrow(og_data), by=interval)){
+      if(i - overlap > 0){
+        start <- i - overlap
+      } else {
+        start <- 1
+      }
+    #   disp(as.character(start))
+    # }
+      df <- partialCorrectSites(truth_df, start, interval)
+      df_to_join <- append(df_to_join, list(df))  
+    }
+  }
+  
   ######
+  # if(need_L_join){
+  #   disp("implement nasty left join for eBird")
+  #   # # max_site <- 1
+  #   # for(row in 1:nrow(WETA_sites)){
+  #   #   if(is.na(WETA_sites[row,]$site4)){
+  #   #     WETA_sites[row,]$site4 <- max_site
+  #   #     max_site <- max_site + 1
+  #   #   }
+  #   # }
+  #   # WETA_sites <- left_join(WETA_sites, eBird_df[c("checklist_id", "site")], by="checklist_id", suffix=c("", "4"))
+  # }
+  ######
+  
   i <- 1
   for(df in df_to_join){
-    # TODO: debug here; one doesn't have checklist_id
     WETA_sites <- inner_join(WETA_sites, df[c("checklist_id", "site")], by="checklist_id", suffix=c("", as.character(i)))  
     i <- i + 1
   }
   
-  return(WETA_sites)
+  return(list(WETA_sites, df_to_join))
 }
 
 
@@ -577,23 +636,24 @@ combineMethods <- function(proj_cent, WETA_sites, og_data){
     }
     
   }
+  # og_data <- inner_join(og_data, WETA_sites[c("checklist_id", "vertex")], by="checklist_id")
+  og_data <- inner_join(og_data, v_by_s_df[c("vertex", "site")], by="vertex")
   
-  og_data$site <- -1
-  # trying to join results of independent locations to checklists
+  # og_data$site <- -1
+  # joining results of independent locations to checklists
   # with the same lat/long
-  for(row in 1:nrow(v_by_s_df)){
-    v <- v_by_s_df[row,]$vertex
-    lat <- og_data[og_data$vertex == v, ]$latitude
-    lon <- og_data[og_data$vertex == v, ]$longitude
-    og_data[og_data$latitude == lat & og_data$longitude == lon,]$site <- v_by_s_df[row,]$site
-  }
+  # for(row in 1:nrow(v_by_s_df)){
+  #   v <- v_by_s_df[row,]$vertex
+  #   lat <- og_data[og_data$vertex == v, ]$latitude
+  #   lon <- og_data[og_data$vertex == v, ]$longitude
+  #   og_data[og_data$latitude == lat & og_data$longitude == lon,]$site <- v_by_s_df[row,]$site
+  # }
   return(og_data)
 }
 
-
 combineMethodsAgg <- function(proj_cent, WETA_sites, og_data){
   v_by_s_df <- data.frame(vertex = numeric(nrow(proj_cent)), site = numeric(nrow(proj_cent)), stringsAsFactors = FALSE)
-
+  
   # run the agglomerative aggregation technique
   # find the site that each checklist belongs to
   max_site <- 1
@@ -605,11 +665,16 @@ combineMethodsAgg <- function(proj_cent, WETA_sites, og_data){
 
     vertex_by_sites.DF <- subset(group_df, select = -c(checklist_id))
     if(length(group_checklists) > 1){
+      disp("length(group_checklists):", as.character(length(group_checklists)))
       
       dMat <- clusterSimil(subset(vertex_by_sites.DF, select = -c(vertex)), ignoreFirstCol = 0)
-      v_map <- data.frame(pvs_vertex = vertex_by_sites.DF$vertex, aggl_v = seq(1:nrow(dMat)))
-      agglom_sites <- agglCluster(dMat)
       
+      v_map <- data.frame(pvs_vertex = vertex_by_sites.DF$vertex, aggl_v = seq(1:nrow(dMat)))
+
+      agglom_sites <- agglCluster(dMat, length(group_checklists))
+
+      
+      ptm <- proc.time()
       for(cl in agglom_sites){
         
         verts <- v_map[v_map$aggl_v %in% cl@objects,]$pvs_vertex
@@ -619,14 +684,165 @@ combineMethodsAgg <- function(proj_cent, WETA_sites, og_data){
           v_by_s_df$site[row] <- max_site
           row <- row + 1  
         }
+        max_site <- max_site + 1
       }
+      end <- proc.time() - ptm
+      disp("forLOOP alg duration: ", as.character(end))
     } else {
       v_by_s_df$vertex[row] <- vertex_by_sites.DF$vertex
       v_by_s_df$site[row] <- max_site
-      row <- row + 1  
+      row <- row + 1
+      max_site <- max_site + 1
     }
-    max_site <- max_site + 1
   }
-  return(v_by_s_df)
+
+  # og_data <- inner_join(og_data, WETA_sites[c("checklist_id", "vertex")], by="checklist_id")
+  og_data <- inner_join(og_data, v_by_s_df[c("vertex", "site")], by="vertex")
+    
+  # og_data$site <- -1
+  # for(row in 1:nrow(v_by_s_df)){
+  #   v <- v_by_s_df[row,]$vertex
+  #   lat <- og_data[og_data$vertex == v, ]$latitude
+  #   lon <- og_data[og_data$vertex == v, ]$longitude
+  #   og_data[og_data$latitude == lat & og_data$longitude == lon,]$site <- v_by_s_df[row,]$site
+  # }
+  # 
+  return(og_data)
 }
+
+calcStats <- function(pred_sites, og_sites, mse){
+  cmetrics = c("jaccard", "overlap", "mirkin", "f", "mmm", "nmi1", "nvi")
+  ARI <- adjustedRandIndex(og_sites, pred_sites)
+  
+  m <- mclustcomp(og_sites, pred_sites, types=cmetrics)
+  p <- ClusterPurity(as.factor(og_sites), as.factor(pred_sites))
+  m_list <- as.list(as.numeric(as.matrix(m)[,2]))
+  names(m_list) <- m$types
+  return(list(purity=p, ARI=ARI, m_list))
+}
+
+ClusterPurity <- function(clusters, classes) {
+  sum(apply(table(classes, clusters), 2, max)) / length(clusters)
+}
+
+runExp <- function(tests, covObj, WETA_sites, og_data, truth_df, proj_cent){
+  
+  # generate sites!
+  sites_obj <- appendSites(tests, WETA_sites, og_data, covObj, truth_df)
+  WETA_sites <- sites_obj[[1]]
+  dfs_list <- sites_obj[[2]]
+  # 
+  # ptm <- proc.time()
+  # comb_df <- combineMethods(proj_cent, WETA_sites, og_data)
+  # end <- proc.time() - ptm
+  # disp("BALLS alg duration: ", as.character(end))
+  
+  ptm <- proc.time()
+  comb_aggl_df <- combineMethodsAgg(proj_cent, WETA_sites, og_data)
+  end <- proc.time() - ptm
+  disp("AGGLOM alg duration: ", as.character(end))
+  
+  # initialize mse list
+  mse_list <- list()
+  
+  # run this through an occupancy model
+  consensus_mse <- calcOccMSE(comb_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
+  mse_list <- append(mse_list, list(consensus_mse))
+  
+  aggl_consensus_mse <- calcOccMSE(comb_aggl_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
+  mse_list <- append(mse_list, list(aggl_consensus_mse))
+  
+  base_mse <- calcOccMSE(truth_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
+  
+  # calc mse for each individual method:
+  for(df in dfs_list){
+    mse.obj <- calcOccMSE(df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)  
+    mse_list <- append(mse_list, list(mse.obj))
+  }
+  
+  return(list(base.mse=base_mse, mse.list=mse_list, pop.WETA.Sites=WETA_sites))
+}
+
+
+# calc similarity btwn each input cluster and the ground truth
+makeSIMIL_TO_GT.DF <- function(res_obj, test_names){
+  j <- 1
+  for(df in res_obj$mse.list){
+    o1 <- df$checklists[order(df$checklists$checklist_id),]
+    o2 <- res_obj$base.mse$checklists[order(res_obj$base.mse$checklists$checklist_id),]
+    stats_list <- calcStats(o1$site, o2$site)
+    row_df <- as.data.frame(stats_list, row.names = test_names[j])
+    
+    if(j == 1){
+      comp_to_ground_truth_df <- row_df
+    } else {
+      comp_to_ground_truth_df <- rbind(comp_to_ground_truth_df, row_df)
+    }
+    j <- j + 1
+  }
+  return(comp_to_ground_truth_df)
+}
+
+# calc similarity btwn each input cluster and 
+# the agglom cluster
+makeCLUSTER_COMP.DF <- function(res.obj, test_names){
+  agglom_df <- res.obj$mse.list[[2]]
+  i <- 1
+  for(df in res.obj$mse.list){
+    
+    og <- agglom_df$checklists[order(agglom_df$checklists$checklist_id),]
+    pred <- df$checklists[order(df$checklists$checklist_id),]
+    stats_list <- mclustcomp(og$site, pred$site, 
+                             types = c("overlap", "nmi1", "f"))
+   
+    
+    ARI <- adjustedRandIndex(o1$site, o2$site)
+    p <- ClusterPurity(as.factor(o1$site), as.factor(o2$site))
+    
+    m_df <- data.frame(t(unlist(c(stats_list$scores, ARI, p))), row.names = test_names[[i]])
+    colnames(m_df) <- c("f", "nmi1", "overlap", "ARI", "purity")
+    if(i == 1){
+      simil_input_method_df <- m_df
+    } else {
+      simil_input_method_df <- rbind(simil_input_method_df, m_df)
+    }
+    i <- i + 1
+  }
+  return(simil_input_method_df)
+}
+
+# put mse values into df
+makeMSE.DF <- function(res.obj, test_names){
+  
+  mse_df <- data.frame(res.obj$base.mse$mse, row.names = "base mse")
+  colnames(mse_df) <- c("occ", "det")
+  k <- 1
+  for(df in res.obj$mse.list){
+    mse_row_df <- data.frame(df$mse, row.names = test_names[[k]])
+    colnames(mse_row_df) <- c("occ", "det")
+    mse_df <- rbind(mse_df, mse_row_df)
+    k <- k + 1
+  }
+  return(mse_df)
+}
+
+
+
+# function to select a subset of correct sites
+partialCorrectSites <- function(df, start, int){
+  df[-c(start:(start+int)),]$site <- seq(1:nrow(df[-c(start:(start+int)),]))
+  return(df)
+}
+
+
+
+# st_drop_geometry <- function(x) {
+#   if(inherits(x,"sf")) {
+#     x <- st_set_geometry(x, NULL)
+#     class(x) <- 'data.frame'
+#   }
+#   return(x)
+# }
+
+
 

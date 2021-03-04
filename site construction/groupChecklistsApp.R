@@ -3,11 +3,12 @@ library(shiny)
 library(geosphere)
 library(sf)
 
-# setwd("/Users/MarkRoth/Documents/Oregon State/Research/")
+setwd("/Users/MarkRoth/Documents/Oregon State/Research/eBird/occ and grouping checklists/occ-cluster/")
 source("helper/helpers.R")
 f_name <- "../../../clusteredSites_2020-12-26_.csv"
 clusted_sites <- read.delim(f_name, sep=",")
 
+unique_location_checklists <- clusted_sites
 # 
 # f_in_WETA <- "eBird/Class Imbalance/generate syn spec/data/linear/syn_species_1_2017.csv"
 # WETA_2017 <- read.delim(f_in_WETA, header=TRUE, sep = ",")

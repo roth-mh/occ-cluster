@@ -212,7 +212,7 @@ enforceClosure <- function(sites_df, occ_cov_list, sites_list){
     if(j %% 100 == 0){
       print(j)
     }
-    checklists_at_site <- subset(sites_df[sites_df$site == eBird_site,])
+    checklists_at_site <- sites_df[sites_df$site == eBird_site,]
     
     for(occCov_i in occ_cov_list){
       checklists_at_site[occCov_i] <- mean(checklists_at_site[[occCov_i]])
@@ -224,14 +224,14 @@ enforceClosure <- function(sites_df, occ_cov_list, sites_list){
       clust_geo_df = rbind(clust_geo_df, checklists_at_site)
     }
     
-    if(sum(checklists_at_site$species_observed_syn) == 0){
-      count <- count + 1
-    }
+    # if(sum(checklists_at_site$species_observed_syn) == 0){
+    #   count <- count + 1
+    # }
     
   }
-  disp("zero detection sites: ", as.character(count))
-  disp("prop of sites: ", as.character(count/length(sites_list)))
-  disp("occupied sites: ", as.character(length(sites_list)-count))
+  # disp("zero detection sites: ", as.character(count))
+  # disp("prop of sites: ", as.character(count/length(sites_list)))
+  # disp("occupied sites: ", as.character(length(sites_list)-count))
   return(clust_geo_df)
 }
 
@@ -357,7 +357,7 @@ calcOccMSE <- function(sites_df_occ, covariate_object, true_occ_coefficients, tr
     obs_covs = covariate_object$obsCovs
   )
   
-  det_cov_str <- paste("", paste(covariate_object$det_cov, collapse="+"), sep=" ~ ")
+  det_cov_str <- paste("", paste(covariate_object$obsCovs, collapse="+"), sep=" ~ ")
   occ_cov_str <- paste("", paste(covariate_object$siteCovs, collapse="+"), sep=" ~ ")
   
   species_formula <- paste(det_cov_str, occ_cov_str, sep = " ")

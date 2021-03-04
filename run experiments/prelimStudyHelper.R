@@ -9,6 +9,15 @@ makeMeasObj <- function(ARI, mclustObj, p, mse, z_d_sites) {
   return(list(ARI=ARI, mObj=mclustObj, purity=p, mse=mse, zds=z_d_sites))
 }
 
+
+# c1 <- c(1,1,1,2,2,2,3,3,3, 4,4,4,4,5,5)
+# c3 <- c(1,1,1,1,1,1,1,1,1,1,2,1,1,1,1)
+# c2 <- c("a","a","b","b","a", "b", "c", "d", "c","e", "c","f", "g","c","g")
+
+# purity, ARI, 
+
+# classes: the correct clustering
+# clusters: the objects clustered via clustering method
 ClusterPurity <- function(clusters, classes) {
   sum(apply(table(classes, clusters), 2, max)) / length(clusters)
 }
