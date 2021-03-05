@@ -36,8 +36,8 @@ tests.A <- list(rounded=NA, eBird=NA,
                 #ANOTHER HERE?,
 )
 
-test_names.A <- list("balls", 
-                     "agglomerative", 
+test_names.A <- list("balls",
+                     "agglom-fast", 
                      # "eBird_simple",
                      "agnes-850",
                      "kmeans-850")
@@ -55,7 +55,7 @@ tests.B <- list(rounded=NA, eBird=NA,
 )
 
 test_names.B <- list("balls", 
-                     "agglomerative", 
+                     "agglom-fast", 
                      "clustGeo-.8-850",
                      "agnes-850",
                      "kmeans-850")
@@ -69,12 +69,12 @@ versions <- c("A","B")
 preLoad <- list()
 # saveRDS(preLoad, file = "preLoad-3-3.rds")
 preLoad <- readRDS("preLoad-3-3.rds")
-p_exp1 <- readRDS("pvsExp2-22.rds")
+# p_exp1 <- readRDS("pvsExp2-22.rds")
 TRUE_OCC_COEFF <- runif(6, -1.5, 1.5)
 TRUE_DET_COEFF <- runif(6, -1.5, 1.5)
-
-length(unique(p_exp1[[3]]$site))
-length(unique(p_exp1[[4]]$site))
+# 
+# length(unique(p_exp1[[3]]$site))
+# length(unique(p_exp1[[4]]$site))
 
 proj_cent <- p_exp1[[3]]
 WETA_filtered <- p_exp1[[4]]

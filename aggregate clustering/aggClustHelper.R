@@ -185,7 +185,7 @@ ballsAggr <- function(dMat, v_list, ALPHA = .4, BETA = .5){
 ###
 setClass("Cluster", slots = list(name="numeric", objects="numeric", closest="numeric", min_dist="numeric"))
 
-agglCluster <- function(dMat, l){
+agglCluster <- function(dMat, run_modification){
   aggl_sites <- as.data.frame(matrix(data = c(seq(1:nrow(dMat)), seq(1:nrow(dMat))), nrow = nrow(dMat), ncol = 2))
   colnames(aggl_sites) <- c("vertex", "site")
   
@@ -195,7 +195,8 @@ agglCluster <- function(dMat, l){
   
   for(v in aggl_sites$vertex){
     new_c <- new("Cluster", name=cluster_name, objects=c(v), closest=-1, min_dist=-1)
-    CLUSTERS <- append(CLUSTERS, new_c)
+    # CLUSTERS <- append(CLUSTERS, new_c)
+    CLUSTERS[[as.character(cluster_name)]] <- new_c
     cluster_name <- cluster_name + 1
   }
   
@@ -204,18 +205,13 @@ agglCluster <- function(dMat, l){
   for(v in CLUSTERS){
     min_obj <- find_min_cluster(v, CLUSTERS, dMat) 
     pop_clst <- new("Cluster", name=cluster_name, objects=c(v@objects), closest=min_obj$clust, min_dist=min_obj$dist)
-    n_CLUSTERS <- append(n_CLUSTERS, pop_clst)
+    # n_CLUSTERS <- append(n_CLUSTERS, pop_clst)
+    n_CLUSTERS[[as.character(cluster_name)]] <- pop_clst
     cluster_name <- cluster_name + 1
   }
   
   idx <- find_min_dist(n_CLUSTERS)
-  ptm <- proc.time()
-  if(l == 318){
-    disp("breaktime")
-  }
-  i<-1
   while(n_CLUSTERS[[idx]]@min_dist <= .5){
-    disp("iteraion #", i)
     new_CLUSTERS <- mergeClusters(n_CLUSTERS, dMat, n_CLUSTERS[[idx]]@name, n_CLUSTERS[[idx]]@closest, cluster_name)
     cluster_name <- cluster_name + 1
     stopifnot(length(new_CLUSTERS) < length(n_CLUSTERS))
@@ -226,33 +222,37 @@ agglCluster <- function(dMat, l){
     # takes about 1s to run and there are many runs (~100)
     # when # unique locations is large
     
+    # this is a hacky-workaround that is not 100p
+    # correct
+    
     # recalculate the min distances
     new_CLUSTERS2 <- list()
-    ptm_i <- proc.time()
     for(v in new_CLUSTERS){
-      # if(v@closest n_CLUSTERS[[idx]]@objects)
-      # if v's objects and the newly combined objects
-      # have a non-0 intersection, do this... o/w
-      # skip it
-        
-        
-      min_obj <- find_min_cluster(v, new_CLUSTERS, dMat) 
-      v@closest <- min_obj$clust
-      v@min_dist <- min_obj$dist
-      new_CLUSTERS2 <- append(new_CLUSTERS2, v)
+      if(run_modification){
+        if(is.null(new_CLUSTERS[[as.character(v@closest)]])){
+        # if v's objects and the newly combined objects
+        # have a non-0 intersection, do this... o/w
+        # skip it
+        min_obj <- find_min_cluster(v, new_CLUSTERS, dMat) 
+        v@closest <- min_obj$clust
+        v@min_dist <- min_obj$dist
+        # new_CLUSTERS2 <- append(new_CLUSTERS2, v)
+        # new_CLUSTERS2[[as.character(v@name)]] <- v
+        }
+      } else {
+        min_obj <- find_min_cluster(v, new_CLUSTERS, dMat) 
+        v@closest <- min_obj$clust
+        v@min_dist <- min_obj$dist
+      }
+      new_CLUSTERS2[[as.character(v@name)]] <- v
     }
-    end <- proc.time() - ptm_i
-    disp("reCALC min dist alg duration: ", as.character(end))
     stopifnot(length(new_CLUSTERS) == length(new_CLUSTERS2))
     n_CLUSTERS <- new_CLUSTERS2
     idx <- find_min_dist(n_CLUSTERS)
     if(idx == -1){
       break
     }
-    i <- i +1
   }
-  end <- proc.time() - ptm
-  disp("while potential clusters remain alg duration: ", as.character(end))
   
   return(n_CLUSTERS)
 }
@@ -270,7 +270,8 @@ mergeClusters <- function(clusters, dMat, clust_name1, clust_name2, new_clust_na
   min_obj <- find_min_cluster(new_clst, clusters, dMat)
   new_clst@closest <- min_obj$clust
   new_clst@min_dist <- min_obj$dist
-  clusters <- append(clusters, new_clst)
+  # clusters <- append(clusters, new_clst)
+  clusters[[as.character(new_clust_name)]] <- new_clst
   return(clusters)
 }
 
@@ -538,7 +539,7 @@ appendSites <- function(tests, WETA_sites, og_data, covObj=NA, truth_df=NA){
   }
   
   if(length(tests$agnes) > 0){
-    for(i in 1:length(tests$kmeans)){
+    for(i in 1:length(tests$agnes)){
       cpy <- og_data
       x <- subset(cpy, select = c(covObj$siteCovs, covObj$obsCovs))
       weta_clust <- agnes(x, method = "ward")
@@ -651,7 +652,7 @@ combineMethods <- function(proj_cent, WETA_sites, og_data){
   return(og_data)
 }
 
-combineMethodsAgg <- function(proj_cent, WETA_sites, og_data){
+combineMethodsAgg <- function(proj_cent, WETA_sites, og_data, run_mod=TRUE){
   v_by_s_df <- data.frame(vertex = numeric(nrow(proj_cent)), site = numeric(nrow(proj_cent)), stringsAsFactors = FALSE)
   
   # run the agglomerative aggregation technique
@@ -659,22 +660,17 @@ combineMethodsAgg <- function(proj_cent, WETA_sites, og_data){
   max_site <- 1
   row <- 1
   for(group in unique(proj_cent$site)){
-    # disp("group is: ", as.character(group))
     group_checklists <- proj_cent[proj_cent$site == group,]$checklist_id
     group_df <- WETA_sites[WETA_sites$checklist_id %in% group_checklists,]
 
     vertex_by_sites.DF <- subset(group_df, select = -c(checklist_id))
     if(length(group_checklists) > 1){
-      disp("length(group_checklists):", as.character(length(group_checklists)))
+      # disp("length(group_checklists):", as.character(length(group_checklists)))
       
       dMat <- clusterSimil(subset(vertex_by_sites.DF, select = -c(vertex)), ignoreFirstCol = 0)
-      
       v_map <- data.frame(pvs_vertex = vertex_by_sites.DF$vertex, aggl_v = seq(1:nrow(dMat)))
+      agglom_sites <- agglCluster(dMat, run_mod)
 
-      agglom_sites <- agglCluster(dMat, length(group_checklists))
-
-      
-      ptm <- proc.time()
       for(cl in agglom_sites){
         
         verts <- v_map[v_map$aggl_v %in% cl@objects,]$pvs_vertex
@@ -686,8 +682,6 @@ combineMethodsAgg <- function(proj_cent, WETA_sites, og_data){
         }
         max_site <- max_site + 1
       }
-      end <- proc.time() - ptm
-      disp("forLOOP alg duration: ", as.character(end))
     } else {
       v_by_s_df$vertex[row] <- vertex_by_sites.DF$vertex
       v_by_s_df$site[row] <- max_site
@@ -731,16 +725,21 @@ runExp <- function(tests, covObj, WETA_sites, og_data, truth_df, proj_cent){
   sites_obj <- appendSites(tests, WETA_sites, og_data, covObj, truth_df)
   WETA_sites <- sites_obj[[1]]
   dfs_list <- sites_obj[[2]]
-  # 
-  # ptm <- proc.time()
-  # comb_df <- combineMethods(proj_cent, WETA_sites, og_data)
-  # end <- proc.time() - ptm
-  # disp("BALLS alg duration: ", as.character(end))
-  
+
   ptm <- proc.time()
-  comb_aggl_df <- combineMethodsAgg(proj_cent, WETA_sites, og_data)
+  comb_df <- combineMethods(proj_cent, WETA_sites, og_data)
   end <- proc.time() - ptm
-  disp("AGGLOM alg duration: ", as.character(end))
+  disp("BALLS alg duration: ", as.character(end))
+
+  ptm <- proc.time()
+  comb_aggl_df_fast <- combineMethodsAgg(proj_cent, WETA_sites, og_data, run_mod = TRUE)
+  end <- proc.time() - ptm
+  disp("AGGLOM-FAST alg duration: ", as.character(end))
+  
+  # ptm <- proc.time()
+  # comb_aggl_df <- combineMethodsAgg(proj_cent, WETA_sites, og_data, run_mod = FALSE)
+  # end <- proc.time() - ptm
+  # disp("AGGLOM alg duration: ", as.character(end))
   
   # initialize mse list
   mse_list <- list()
@@ -749,8 +748,11 @@ runExp <- function(tests, covObj, WETA_sites, og_data, truth_df, proj_cent){
   consensus_mse <- calcOccMSE(comb_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
   mse_list <- append(mse_list, list(consensus_mse))
   
-  aggl_consensus_mse <- calcOccMSE(comb_aggl_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
+  aggl_consensus_mse <- calcOccMSE(comb_aggl_df_fast, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
   mse_list <- append(mse_list, list(aggl_consensus_mse))
+  
+  # aggl_consensus_mse <- calcOccMSE(comb_aggl_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
+  # mse_list <- append(mse_list, list(aggl_consensus_mse))
   
   base_mse <- calcOccMSE(truth_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
   
@@ -796,8 +798,8 @@ makeCLUSTER_COMP.DF <- function(res.obj, test_names){
                              types = c("overlap", "nmi1", "f"))
    
     
-    ARI <- adjustedRandIndex(o1$site, o2$site)
-    p <- ClusterPurity(as.factor(o1$site), as.factor(o2$site))
+    ARI <- adjustedRandIndex(og$site, pred$site)
+    p <- ClusterPurity(as.factor(og$site), as.factor(pred$site))
     
     m_df <- data.frame(t(unlist(c(stats_list$scores, ARI, p))), row.names = test_names[[i]])
     colnames(m_df) <- c("f", "nmi1", "overlap", "ARI", "purity")
