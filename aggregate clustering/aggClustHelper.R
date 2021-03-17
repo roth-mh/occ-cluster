@@ -3,6 +3,7 @@
 library(gtools)
 library(mclustcomp)
 library(cluster)
+library(aricode)
 
 ##########
 # checklist similarity
@@ -217,13 +218,14 @@ agglCluster <- function(dMat, run_modification){
     stopifnot(length(new_CLUSTERS) < length(n_CLUSTERS))
     
     
-    # the code bwloe needs to be refactored, it is the
+    # the code below needs to be refactored, it is the
     # bottleneck for the rest of the algorithm it
     # takes about 1s to run and there are many runs (~100)
     # when # unique locations is large
     
-    # this is a hacky-workaround that is not 100p
-    # correct
+    # this hacky-workaround is not 100p correct;
+    # it only recalculates for clusters that had 
+    # a closest neighbor that was merged 
     
     # recalculate the min distances
     new_CLUSTERS2 <- list()
@@ -541,7 +543,7 @@ appendSites <- function(tests, WETA_sites, og_data, covObj=NA, truth_df=NA){
   if(length(tests$agnes) > 0){
     for(i in 1:length(tests$agnes)){
       cpy <- og_data
-      x <- subset(cpy, select = c(covObj$siteCovs, covObj$obsCovs))
+      x <- subset(cpy, select = c(covObj$siteCovs, covObj$obsCovs, "latitude", "longitude"))
       weta_clust <- agnes(x, method = "ward")
       agnes.clusters <- cutree(as.hclust(weta_clust), k = tests$agnes[[i]])
       cpy$site <- as.numeric(agnes.clusters)
@@ -552,10 +554,17 @@ appendSites <- function(tests, WETA_sites, og_data, covObj=NA, truth_df=NA){
   if(length(tests$kmeans) > 0){
     for(i in 1:length(tests$kmeans)){
       cpy <- og_data
-      x <- subset(cpy, select = c(covObj$siteCovs, covObj$obsCovs))
+      x <- subset(cpy, select = c(covObj$siteCovs, covObj$obsCovs, "latitude", "longitude"))
       kmean_res <- kmeans(x, tests$kmeans[[i]])
       cpy$site <- as.numeric(kmean_res$cluster)
       df_to_join <- append(df_to_join, list(cpy))  
+    }
+  }
+  
+  if(length(tests$kmSq) > 0){
+    for(i in 1:length(tests$kmSq)){
+      kmSq.df <- kmsq.Sites(og_data, rad_m = tests$kmSq[[i]])
+      df_to_join <- append(df_to_join, list(kmSq.df))
     }
   }
   
@@ -669,6 +678,8 @@ combineMethodsAgg <- function(proj_cent, WETA_sites, og_data, run_mod=TRUE){
       
       dMat <- clusterSimil(subset(vertex_by_sites.DF, select = -c(vertex)), ignoreFirstCol = 0)
       v_map <- data.frame(pvs_vertex = vertex_by_sites.DF$vertex, aggl_v = seq(1:nrow(dMat)))
+      # if run_mod == TRUE, we make a simplifying assumption that does not hold
+      # TODO: refactor and make quicker
       agglom_sites <- agglCluster(dMat, run_mod)
 
       for(cl in agglom_sites){
@@ -704,15 +715,17 @@ combineMethodsAgg <- function(proj_cent, WETA_sites, og_data, run_mod=TRUE){
   return(og_data)
 }
 
-calcStats <- function(pred_sites, og_sites, mse){
-  cmetrics = c("jaccard", "overlap", "mirkin", "f", "mmm", "nmi1", "nvi")
+calcStats <- function(pred_sites, og_sites){
+  # cmetrics = c("jaccard", "overlap", "mirkin", "f", "mmm", "nmi1", "nvi")
   ARI <- adjustedRandIndex(og_sites, pred_sites)
   
-  m <- mclustcomp(og_sites, pred_sites, types=cmetrics)
+  # m <- mclustcomp(og_sites, pred_sites, types=cmetrics)
+  nmi <- NMI(og_sites, pred_sites, variant = "joint")
+  ami <- AMI(og_sites, pred_sites)
+  nid <- NID(og_sites, pred_sites)
+  
   p <- ClusterPurity(as.factor(og_sites), as.factor(pred_sites))
-  m_list <- as.list(as.numeric(as.matrix(m)[,2]))
-  names(m_list) <- m$types
-  return(list(purity=p, ARI=ARI, m_list))
+  return(list(purity=p, ARI=ARI, NMI=nmi, AMI=ami, NID=nid))
 }
 
 ClusterPurity <- function(clusters, classes) {
@@ -769,9 +782,9 @@ runExp <- function(tests, covObj, WETA_sites, og_data, truth_df, proj_cent){
 # calc similarity btwn each input cluster and the ground truth
 makeSIMIL_TO_GT.DF <- function(res_obj, test_names){
   j <- 1
+  o2 <- res_obj$base.mse$checklists[order(res_obj$base.mse$checklists$checklist_id),]
   for(df in res_obj$mse.list){
     o1 <- df$checklists[order(df$checklists$checklist_id),]
-    o2 <- res_obj$base.mse$checklists[order(res_obj$base.mse$checklists$checklist_id),]
     stats_list <- calcStats(o1$site, o2$site)
     row_df <- as.data.frame(stats_list, row.names = test_names[j])
     
@@ -794,15 +807,17 @@ makeCLUSTER_COMP.DF <- function(res.obj, test_names){
     
     og <- agglom_df$checklists[order(agglom_df$checklists$checklist_id),]
     pred <- df$checklists[order(df$checklists$checklist_id),]
-    stats_list <- mclustcomp(og$site, pred$site, 
-                             types = c("overlap", "nmi1", "f"))
+    # stats_list <- mclustcomp(og$site, pred$site, 
+    #                          types = c("overlap", "nmi1", "f"))
    
     
     ARI <- adjustedRandIndex(og$site, pred$site)
     p <- ClusterPurity(as.factor(og$site), as.factor(pred$site))
-    
-    m_df <- data.frame(t(unlist(c(stats_list$scores, ARI, p))), row.names = test_names[[i]])
-    colnames(m_df) <- c("f", "nmi1", "overlap", "ARI", "purity")
+    nmi <- NMI(og$site, pred$site, variant = "joint")
+    ami <- AMI(og$site, pred$site)
+    nid <- NID(og$site, pred$site)
+    m_df <- data.frame(t(unlist(c(p, ARI, nmi, ami, nid))), row.names = test_names[[i]])
+    colnames(m_df) <- c("purity", "ARI", "NMI", "AMI", "NID")
     if(i == 1){
       simil_input_method_df <- m_df
     } else {
@@ -837,14 +852,57 @@ partialCorrectSites <- function(df, start, int){
 }
 
 
+# helper function to link Checklists given a reduced
+# df (red_df) and a full df
+linkChecklists <- function(red_df, full_df){
+  # for(row in 1:nrow(full_df)){
+  #   # disp(row)
+  #   long <- full_df[row, ]$longitude
+  #   lat <- full_df[row, ]$latitude
+  #   site_obj <- red_df[red_df$longitude == long & red_df$latitude == lat,]
+  #   full_df[row,]$site <- as.character(site_obj$site)
+  # }
+  for(row in 1:nrow(red_df)){
+    # disp(row)
+    long <- red_df[row, ]$longitude
+    lat <- red_df[row, ]$latitude
+    full_df[full_df$longitude == long & full_df$latitude == lat,]$site <- red_df[row,]$site
+  }
+  
+  return(full_df)
+}
 
-# st_drop_geometry <- function(x) {
-#   if(inherits(x,"sf")) {
-#     x <- st_set_geometry(x, NULL)
-#     class(x) <- 'data.frame'
-#   }
-#   return(x)
-# }
 
-
-
+# fcn to make test flow smoother
+# test_names is a list of strings specifying
+# the tests you want to run. the parameters
+# of each test are separated with a '-'
+#
+# for example: clustGeo-.8-850
+genTests <- function(test_names){
+  tests <- list(rounded=NA, eBird=NA, 
+                eBird_simple=NA,
+                kmSq=list(),
+                DBSC=NA,
+                GT=NA,
+                noisy_gt=NA,
+                clustGeo=list(),
+                agnes=list(),
+                kmeans=list()
+                # local=list()
+  )
+  for(i in 3:length(test_names)){
+    t_name <- strsplit(test_names[[i]], "-")[[1]]
+    
+    # Need to update if we use local
+    if(t_name[1] %in% c("clustGeo", "agnes", "kmeans", "local", "kmSq")){
+      
+      len <- length(tests[[t_name[1]]]) + 1
+      tests[[t_name[1]]][len] <- list(as.double(t_name[2:length(t_name)]))
+    } else {
+      tests[[t_name[[1]][1]]] <- T  
+    }
+  }
+  
+  return(tests)
+}

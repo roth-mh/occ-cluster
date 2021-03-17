@@ -65,11 +65,11 @@ for(o in c(.1,.3,.5,.7,.9)){
     #####
     comp_df_i <- makeSIMIL_TO_GT.DF(res_obj2)
     
-    #####
-    # similarity btwn aggl method
-    # and each input method
-    #####
-    simil_df_i <- makeCLUSTER_COMP.DF(res_obj2)
+    # #####
+    # # similarity btwn aggl method
+    # # and each input method
+    # #####
+    # simil_df_i <- makeCLUSTER_COMP.DF(res_obj2)
     
     #####
     # mse values
@@ -80,21 +80,21 @@ for(o in c(.1,.3,.5,.7,.9)){
       temp <- cbind(comp_to_ground_truth_df, comp_df_i)
       comp_to_ground_truth_df <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))  
       
-      temp <- cbind(simil_input_method_df, simil_df_i)
-      simil_input_method_df <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))  
+      # temp <- cbind(simil_input_method_df, simil_df_i)
+      # simil_input_method_df <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))  
       
       temp <- cbind(mse_df, mse_df_i)
       mse_df <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))  
     } else {
       comp_to_ground_truth_df <- comp_df_i
-      simil_input_method_df <- simil_df_i
+      # simil_input_method_df <- simil_df_i
       mse_df <- mse_df_i
     }
   }
   
   if(o != 0){
     comp_to_ground_truth_df <- comp_to_ground_truth_df/numRuns
-    simil_input_method_df <- simil_input_method_df/numRuns
+    # simil_input_method_df <- simil_input_method_df/numRuns
     mse_df <- mse_df/numRuns
   }
   
@@ -102,7 +102,7 @@ for(o in c(.1,.3,.5,.7,.9)){
   exp_num <- k
   exp_name <- paste0("-", exp_type, "-", exp_num)
   write.csv(comp_to_ground_truth_df, file=paste0("aggregate clustering/results/", exp_type, "/similarity_to_GT_Exp", exp_name, ".csv"))
-  write.csv(simil_input_method_df, file=paste0("aggregate clustering/results/", exp_type, "/similarity_to_agglom_Exp", exp_name, ".csv"))
+  # write.csv(simil_input_method_df, file=paste0("aggregate clustering/results/", exp_type, "/similarity_to_agglom_Exp", exp_name, ".csv"))
   write.csv(mse_df, file=paste0("aggregate clustering/results/", exp_type, "/mse", exp_name, ".csv"))
   k <- k + 1
 }

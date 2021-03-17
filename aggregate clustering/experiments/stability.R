@@ -4,11 +4,12 @@ library(sp)
 library(raster)
 library(dbscan)
 library(cluster)
-setwd("/Users/MarkRoth/Documents/Oregon State/Research/eBird/occ and grouping checklists/occ-cluster/")
+# setwd("/Users/MarkRoth/Documents/Oregon State/Research/eBird/occ and grouping checklists/occ-cluster/")
 source("helper/DBSC/DBSCHelper.R")
 source("helper/ClustGeo/clustGeoHelper.R")
 source("helper/helpers.R")
 source("helper/gen_sites.R")
+source("helper/kmsq.R")
 source("aggregate clustering/aggClustHelper.R")
 
 MDD <- 250    # meters
@@ -19,24 +20,13 @@ obj <- load.WETA()
 WETA_2017 <- obj[[1]]
 covObj <- obj[[2]]
 
-# hard to test this with clustGeo when we don't know howthe ballpark of unique locations/sites...
-tests <- list(rounded=T, eBird=NA, 
-                eBird_simple=T,
-                DBSC=T,
-                clustGeo=list(),
-                GT=NA,
-                noisy_gt=NA,
-                agnes=list(),
-                kmeans=list(),
-                local=list()
-                #ANOTHER HERE?,
-)
-
 test_names <- list("balls",
                    "agglom-fast", 
                    "rounded",
                    "eBird_simple",
                    "DBSC")
+
+tests <- genTests(test_names)
 
 ####################
 #### PRE LOADING OBJ
@@ -58,73 +48,146 @@ if(length(preLoad) == 0){
 truth_df <- populateDF(WETA_filtered, covObj$siteCovs, covObj$obsCovs, unique(WETA_filtered$site), TRUE_OCC_COEFF, TRUE_DET_COEFF)  
 gen.new.df <- TRUE
 
-numExps <- 10
-sampleSizes <- c(500, 1000, 1500, 2000)
-for(sampSize in sampleSizes){
-  for(i in 1:numExps){
-    
-    WETA_2017$site <- -1
-    WETA_2017$vertex <- seq(1:nrow(WETA_2017))
-    
-    og_data <- subset(WETA_2017, select = -c(site))
-    og_data$species_observed_syn <- truth_df$species_observed_syn
-    
-    WETA_sites <- subset(og_data, select = c(checklist_id, vertex))
-    
-    
-    samp <- sample(seq(1:nrow(truth_df)), sampSize)
-    WETA_sites <- WETA_sites[samp,]
+WETA_2017$site <- -1
+WETA_2017$vertex <- seq(1:nrow(WETA_2017))
 
-    og_data <- og_data[og_data$checklist_id %in% WETA_sites$checklist_id,]
-    truth_df <- truth_df[truth_df$checklist_id %in% WETA_sites$checklist_id,]
-    proj_cent <- proj_cent[proj_cent$checklist_id %in% WETA_sites$checklist_id,]
-    
-    res_obj <- runExp(tests, covObj, WETA_sites, og_data, truth_df, proj_cent)
-    
-    #####
-    # similarity btwn aggl method
-    # and GT partition
-    #####
-    comp_to_ground_truth_df_i <- makeSIMIL_TO_GT.DF(res_obj, test_names)
-    
-    #####
-    # similarity btwn aggl method
-    # and each input method
-    #####
-    simil_input_method_df_i <- makeCLUSTER_COMP.DF(res_obj, test_names)
-    
-    #####
-    # mse values
-    #####
-    mse_df_i <- makeMSE.DF(res_obj, test_names)
-    
-    if(i != 1){
-      temp <- cbind(comp_to_ground_truth_df, comp_df_i)
-      comp_to_ground_truth_df <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))  
-      
-      temp <- cbind(simil_input_method_df, simil_df_i)
-      simil_input_method_df <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))  
-      
-      temp <- cbind(mse_df, mse_df_i)
-      mse_df <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))  
-    } else {
-      comp_to_ground_truth_df <- comp_df_i
-      simil_input_method_df <- simil_df_i
-      mse_df <- mse_df_i
-    }
-    
-    if(gen.new.df){
-      TRUE_OCC_COEFF <- runif(6, -1.5, 1.5)
-      TRUE_DET_COEFF <- runif(6, -1.5, 1.5)
-      truth_df <- populateDF(WETA_filtered, covObj$siteCovs, covObj$obsCovs, unique(WETA_filtered$site), TRUE_OCC_COEFF, TRUE_DET_COEFF)      
-    }
-    
+
+runStabilityExp("boot", truth_df = truth_df, WETA_2017)
+
+runStabilityExp <- function(exp, truth_df, WETA_2017){
+  
+  list_of_res <- vector("list", length(test_names))
+  
+  truth_df_list <- list(truth_df)
+  
+  if(exp == "boot"){
+    sampleSizes <- c(nrow(truth_df))
+    numExps <- 10
+    replacement <- TRUE
+    gen.new.df <- FALSE
+  } else if(exp == "location"){
+    WETA_uniq <- sqldf("SELECT * FROM WETA_filtered GROUP BY latitude, longitude")
+    sampleSizes <- c(400, 600, nrow(WETA_uniq))
+    numExps <- 25
+    # sampleSizes <- c(100)
+    # numExps <- 2
+    replacement <- FALSE
+  } else if(exp == "normal"){
+    sampleSizes <- c(round(nrow(truth_df)/2), round(nrow(truth_df)/3), round(nrow(truth_df)/4))
+    numExps <- 10
+    replacement <- FALSE
   }
-  exp_type <- "stability" # MUST BE distinct OR overlap OR noisy OR pCorr non-spatial OR stability OR <empty>
-  exp_name <- paste0("-", exp_type, "-ss-", sampSize)
-  write.csv(comp_to_ground_truth_df, file=paste0("aggregate clustering/results/", exp_type, "/similarity_to_GT_Exp", exp_name, ".csv"))
-  write.csv(simil_input_method_df, file=paste0("aggregate clustering/results/", exp_type, "/similarity_to_agglom_Exp", exp_name, ".csv"))
-  write.csv(mse_df, file=paste0("aggregate clustering/results/", exp_type, "/mse", exp_name, ".csv"))
+
+  for(sampSize in sampleSizes){
+    for(i in 1:numExps){
+      
+      # use the same underlying dfs for each sample size
+      if(length(truth_df_list) > 1){
+        # head(truth_df_list[[i]])
+        truth_df <- truth_df_list[[i]]
+      } else {
+        truth_df <- truth_df_list[[1]]
+      }
+      
+      og_data <- subset(WETA_2017, select = -c(site))
+      og_data$species_observed_syn <- truth_df$species_observed_syn
+      
+      WETA_sites <- subset(og_data, select = c(checklist_id, vertex))
+      
+      if(exp == "location"){
+        samp <- sample(seq(1:nrow(WETA_uniq)), sampSize, replace = replacement)
+        W_uniq <- WETA_uniq[samp,]
+        W_full <- linkChecklists(W_uniq, WETA_2017)
+        W_full <- W_full[!(W_full$site == -1),]
+        W_sites <- subset(W_full, select = c(checklist_id, vertex))
+      } else {
+        samp <- sample(seq(1:nrow(WETA_2017)), sampSize, replace = replacement)
+        W_sites <- WETA_sites[samp,]
+      }
+      
+      og_data <- og_data[og_data$checklist_id %in% W_sites$checklist_id,]
+      t_df <- truth_df[truth_df$checklist_id %in% W_sites$checklist_id,]
+      p_cent <- proj_cent[proj_cent$checklist_id %in% W_sites$checklist_id,]
+      
+      res_obj <- runExp(tests, covObj, W_sites, og_data, t_df, p_cent)
+      
+      #####
+      # similarity btwn aggl method
+      # and GT partition
+      #####
+      comp_to_ground_truth_df_i <- makeSIMIL_TO_GT.DF(res_obj, test_names)
+      
+      #####
+      # similarity btwn aggl method
+      # and each input method
+      #####
+      # simil_input_method_df_i <- makeCLUSTER_COMP.DF(res_obj, test_names)
+      
+      #####
+      # mse values
+      #####
+      mse_df_i <- makeMSE.DF(res_obj, test_names)
+      
+      
+      for(t in 1:length(test_names)){
+        t_name <- test_names[t]
+        t_res <- comp_to_ground_truth_df_i[as.character(t_name),]
+        if(is.null(list_of_res[[t]])){
+          list_of_res[[t]] <- t_res
+        } else {
+          list_of_res[[t]] <- rbind(list_of_res[[t]], t_res)
+        }
+      }
+      
+      if(i != 1){
+        temp <- cbind(comp_to_ground_truth_df, comp_to_ground_truth_df_i)
+        comp_to_ground_truth_df <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))  
+        
+        temp <- cbind(mse_df, mse_df_i)
+        mse_df <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))  
+      } else {
+        comp_to_ground_truth_df <- comp_to_ground_truth_df_i
+        mse_df <- mse_df_i
+      }
+      
+      if(gen.new.df){
+        TRUE_OCC_COEFF <- runif(6, -1.5, 1.5)
+        TRUE_DET_COEFF <- runif(6, -1.5, 1.5)
+        truth_df <- populateDF(WETA_filtered, covObj$siteCovs, covObj$obsCovs, unique(WETA_filtered$site), TRUE_OCC_COEFF, TRUE_DET_COEFF)
+        truth_df_list <- append(truth_df_list, list(truth_df))
+      }
+      
+    }
+    
+    comp_to_ground_truth_df <- comp_to_ground_truth_df/numExps
+    mse_df <- mse_df/numExps
+    
+    exp_type <- paste0("stability/", exp) # MUST BE distinct OR overlap OR noisy OR pCorr non-spatial OR stability OR <empty>
+    exp_name <- paste0("-stability-", sampSize)
+    write.csv(comp_to_ground_truth_df, 
+              file=paste0("aggregate clustering/results/", 
+                          exp_type, 
+                          "/similarity_to_GT_Exp", 
+                          exp_name, ".csv"))
+    write.csv(mse_df, file=paste0("aggregate clustering/results/", 
+                                  exp_type, 
+                                  "/mse", 
+                                  exp_name, ".csv"))
+    
+    for(t in 1:length(list_of_res)){
+      # exp_num <- i
+      exp_name <- paste0("-stability-", sampSize, "-", test_names[t])
+      write.csv(list_of_res[[t]], 
+                file=paste0("aggregate clustering/results/", 
+                            exp_type, 
+                            "individual/similarity_to_GT_Exp", 
+                            exp_name, 
+                            ".csv")
+      )
+    }
+    gen.new.df <- FALSE  
+  }
+  
 }
 
 
