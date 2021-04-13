@@ -48,3 +48,6 @@ ebd_US-OR_201705_201707_relNov-2020.txt
 eBird_sampling.zip
 *.csv
 *.rds
+*.gri
+*.grd
+*.tif

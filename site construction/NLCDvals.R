@@ -10,9 +10,34 @@ library(dplyr)
 #   of two cells
 ############
 conductanceVals <- function(x){
-  return(1/mean(c(getResistVal(x[1]), getResistVal(x[2]))))
+  num_layers <- length(x)/2
+  # THUS FIRST LAYER MUST BE NLCD
+  tot_res <- mean(c(getResistVal(x[1]), getResistVal(x[2])))
+  for(i in 2:num_layers){
+    j <- 2 * i
+    tot_res <- tot_res + mean(x[(j - 1)], x[j])
+  }
+  return(1/tot_res)
 }
+# should this be an additive or multiplicative relationship?
+# additive is probably fine
 
+# both hwy (time of day)
+# and river (time of year) have temporal
+# aspects that can be incorporated
+
+
+# resistance values for highway and river buffers
+# hwy 50:     3
+# hwy 100:    2
+# hwy 200:    1
+
+# L riv 50:   3
+# L riv 100:  2
+# M riv 50:   2.5
+# M riv 100:  1.5
+
+# resistance values for NLCD
 getResistVal <- function(val){
   if(val == 0){
     # disp("ERROR, no value for cell")
