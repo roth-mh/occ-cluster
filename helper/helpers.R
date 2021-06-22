@@ -209,9 +209,9 @@ enforceClosure <- function(sites_df, occ_cov_list, sites_list){
   # for(eBird_site in 1:numSites){  # for clust geo
   for(eBird_site in sites_list){
     j = j+1
-    if(j %% 100 == 0){
-      print(j)
-    }
+    # if(j %% 100 == 0){
+    #   print(j)
+    # }
     checklists_at_site <- sites_df[sites_df$site == eBird_site,]
     
     for(occCov_i in occ_cov_list){
@@ -334,7 +334,7 @@ add_to_summary <- function(res_obj, final_s, TRUE_OCC_COEFF, TRUE_DET_COEFF){
 #   5. calculates difference in estimated generative model
 #       and true generative model
 ##########
-calcOccMSE <- function(sites_df_occ, covariate_object, true_occ_coefficients, true_det_coefficients, syn_spec=FALSE, skip_closure=FALSE){
+calcOccMSE <- function(sites_df_occ, covariate_object, true_occ_coefficients, true_det_coefficients, syn_spec=FALSE, skip_closure=FALSE, truth_df=data.frame()){
   sites_occ <- subset(sites_df_occ, !duplicated(site))$site
   # this (v v) function is synthetic species specific
   if(skip_closure){
@@ -344,7 +344,7 @@ calcOccMSE <- function(sites_df_occ, covariate_object, true_occ_coefficients, tr
   }
   
   if(syn_spec){
-    spec_obs <- "species_observed_syn"  
+    spec_obs <- "species_observed_syn"
   } else {
     spec_obs <- "species_observed"
   }
@@ -372,19 +372,62 @@ calcOccMSE <- function(sites_df_occ, covariate_object, true_occ_coefficients, tr
   occ_ex_intercept <- og_syn_gen_form@estimates['state']@estimates
   det_ex_intercept <- og_syn_gen_form@estimates['det']@estimates
   
-
   occ_MSE <- MSE(occ_ex_intercept, true_occ_coefficients)
   det_MSE <- MSE(det_ex_intercept, true_det_coefficients)
   
-  # if(occ_MSE < 5){
-  #   og_syn_gen_form_PEN <- unmarked::occuPEN(formula = species_formula, occ_um, lambda = .1, pen.type = "MPLE")
-  #   occ_ex_intercept_PEN <- og_syn_gen_form_PEN@estimates['state']@estimates
-  #   det_ex_intercept_PEN <- og_syn_gen_form_PEN@estimates['det']@estimates
-  #   occ_MSE_PEN <- MSE(occ_ex_intercept_PEN, true_occ_coefficients)
-  #   det_MSE_PEN <- MSE(det_ex_intercept_PEN, true_det_coefficients) 
+  # if(nrow(truth_df) == 0){
+  #   prob_occ_MSE <- 0
+  #   prob_det_MSE <- 0
+  #   
+  # } else {
+  # calculate the average checklist prob_MSE
+  
+  closed_df$det_int <- det_ex_intercept[[1]]
+  closed_df$det_1 <- closed_df[[names(det_ex_intercept[2])]] * det_ex_intercept[[2]]
+  closed_df$det_2 <- closed_df[[names(det_ex_intercept[3])]] * det_ex_intercept[[3]]
+  closed_df$det_3 <- closed_df[[names(det_ex_intercept[4])]] * det_ex_intercept[[4]]
+  closed_df$det_4 <- closed_df[[names(det_ex_intercept[5])]] * det_ex_intercept[[5]]
+  closed_df$det_5 <- closed_df[[names(det_ex_intercept[6])]] * det_ex_intercept[[6]]
+  
+  closed_df$pred_det_prob <- apply(closed_df, 1, s)
+  
+  closed_df$occ_int <- occ_ex_intercept[[1]]
+  closed_df$occ_1 <- closed_df[[names(occ_ex_intercept[2])]] * occ_ex_intercept[[2]]
+  closed_df$occ_2 <- closed_df[[names(occ_ex_intercept[3])]] * occ_ex_intercept[[3]]
+  closed_df$occ_3 <- closed_df[[names(occ_ex_intercept[4])]] * occ_ex_intercept[[4]]
+  closed_df$occ_4 <- closed_df[[names(occ_ex_intercept[5])]] * occ_ex_intercept[[5]]
+  closed_df$occ_5 <- closed_df[[names(occ_ex_intercept[6])]] * occ_ex_intercept[[6]]
+  
+  closed_df$pred_occupied_prob <- apply(closed_df, 1, s1)
+  
+  # just split this into 10 separate columns? ... :(
+  t_df <- sqldf("SELECT * FROM truth_df WHERE checklist_id IN (SELECT checklist_id FROM closed_df)")
+  
+  closed_df <- closed_df[order(closed_df$checklist_id),]
+  t_df <- t_df[order(t_df$checklist_id),]
+  
+  t_df$det_diff <- abs(closed_df$pred_det_prob - t_df$det_prob)
+  t_df$occ_diff <- abs(closed_df$pred_occupied_prob - t_df$occupied_prob)
+  
+  prob_occ_MSE <- sum(t_df$occ_diff)/nrow(t_df)
+  prob_det_MSE <- sum(t_df$det_diff)/nrow(t_df)
+    
   # }
   
-  return(list(mse=list(occ=occ_MSE, det=det_MSE), checklists=sites_df_occ, pred_form=og_syn_gen_form))
+  return(list(mse=list(occ=occ_MSE, det=det_MSE), prob_mse=list(occ=prob_occ_MSE, det=prob_det_MSE), checklists=sites_df_occ, pred_form=og_syn_gen_form))
+}
+
+
+s <- function(x, output){
+  val <- as.numeric(x[["det_int"]]) + as.numeric(x[["det_1"]]) + as.numeric(x[["det_2"]]) +
+    as.numeric(x[["det_3"]]) + as.numeric(x[["det_4"]]) + as.numeric(x[["det_5"]])
+  return(expit(val))
+}
+
+s1 <- function(x, output){
+  val <- as.numeric(x[["occ_int"]]) + as.numeric(x[["occ_1"]]) + as.numeric(x[["occ_2"]]) +
+    as.numeric(x[["occ_3"]]) + as.numeric(x[["occ_4"]]) + as.numeric(x[["occ_5"]])
+  return(expit(val))
 }
 
 ##########

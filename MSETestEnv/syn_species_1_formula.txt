@@ -1,8 +1,0 @@
-OCCUPANCY FORMULA IS: 
-
- logit(o_i) = -0.5 + 0.9772027357609328 * summer_nbr_TCB_mean_2400 + -0.028406966644699994 * spring_nbr_TCG_mean_75 + 0.946381131416163 * fall_nbr_B2_stdDev_300 + 0.7298163568647422 * slope_mean_300 + 0.20654714056879497 * summer_b5_B4_stdDev_1200
-DETECTION FORMULA IS: 
-
- logit(o_i) = -1 + 0.3935988905626474 * day_of_year + 0.6282290623116853 * time_observations_started + -0.21418691151584734 * duration_minutes + 1.0118138402429864 * effort_distance_km + 0.8490091884815945 * number_observers
-summer_nbr_TCB_mean_2400, spring_nbr_TCG_mean_75, fall_nbr_B2_stdDev_300, slope_mean_300, summer_b5_B4_stdDev_1200
-day_of_year, time_observations_started, duration_minutes, effort_distance_km, number_observers

@@ -20,12 +20,12 @@ obj <- load.WETA()
 WETA_2017 <- obj[[1]]
 covObj <- obj[[2]]
 
-# TODO: order matters, must be sorted after the first two
+
 test_names <- list("balls",
                    "agglom-fast", 
                    "DBSC",
                    "eBird_simple",
-                   "rounded")
+                   "rounded-4")
 
 tests <- genTests(test_names)
 
@@ -45,8 +45,10 @@ if(length(preLoad) == 0){
   proj_cent <- preLoad[[1]]
   WETA_filtered <- preLoad[[2]]
 }
+# TODO: CHANGE THIS SHIT
+WETA_filtered_uniq <- sqldf("SELECT * from WETA_filtered GROUP BY latitude, longitude")
 
-truth_df <- populateDF(WETA_filtered, covObj$siteCovs, covObj$obsCovs, unique(WETA_filtered$site), TRUE_OCC_COEFF, TRUE_DET_COEFF)  
+truth_df <- populateDF(WETA_filtered_uniq, covObj$siteCovs, covObj$obsCovs, unique(WETA_filtered_uniq$site), TRUE_OCC_COEFF, TRUE_DET_COEFF)  
 gen.new.df <- TRUE
 
 WETA_2017$site <- -1
@@ -56,7 +58,7 @@ runStabilityExp(
   "boot", 
   truth_df = truth_df, 
   WETA_2017, 
-  WETA_filtered, 
+  WETA_filtered_uniq, 
   proj_cent, 
   tests, 
   test_names, 

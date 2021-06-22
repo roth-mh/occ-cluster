@@ -490,10 +490,11 @@ appendSites <- function(tests, WETA_sites, og_data, covObj=NA, truth_df=NA){
     for(i in 1:length(tests$agnes)){
       cpy <- og_data
       x <- subset(cpy, select = c(covObj$siteCovs, covObj$obsCovs, "latitude", "longitude"))
-      weta_clust <- agnes(x, method = "ward")
+      weta_clust <- agnes(x, method = "ward") # I think complete linkage makes more sense in the context of sites
       agnes.clusters <- cutree(as.hclust(weta_clust), k = tests$agnes[[i]])
       cpy$site <- as.numeric(agnes.clusters)
-      df_to_join <- append(df_to_join, list(cpy))
+      # df_to_join <- append(df_to_join, list(cpy))
+      df_to_join[[paste0("agnes-", as.character(tests$agnes[[i]]))]] <- cpy
     }
   }
   
@@ -501,27 +502,36 @@ appendSites <- function(tests, WETA_sites, og_data, covObj=NA, truth_df=NA){
     for(i in tests$clustGeo){
       disp(i)
       clustGeo_df_i <- clustGeoSites(alpha = i[1], og_data, covObj, num_sites = i[2])
-      df_to_join <- append(df_to_join, list(clustGeo_df_i))
+      # df_to_join <- append(df_to_join, list(clustGeo_df_i))
+      df_to_join[[paste0("clustGeo-", as.character(i[1]), "-", as.character(i[2]))]] <- clustGeo_df_i
     }
   }
   
   if(!is.na(tests$DBSC)){
     DBSC_df <- runDBSC(og_data, covObj)  
-    df_to_join <- append(df_to_join, list(DBSC_df))
+    # df_to_join <- append(df_to_join, list(DBSC_df))
+    df_to_join[["DBSC"]] <- DBSC_df
   }
   
-  if(!is.na(tests$eBird)){
-    eBird_df <- filter_repeat_visits(
-      og_data,
-      min_obs = 2,
-      max_obs = 10,
-      annual_closure = TRUE,
-      date_var = "formatted_date",
-      site_vars = c("locality_id", "observer_id")
-    )
-    df_to_join <- append(df_to_join, list(eBird_df))
-    need_L_join <- TRUE
+  if("all_svs" %in% names(tests)){
+    all_svs_df <- og_data
+    all_svs_df$site <- seq(1:nrow(all_svs_df))
+    # df_to_join <- append(df_to_join, list(DBSC_df))
+    df_to_join[["all_svs"]] <- all_svs_df
   }
+  
+  # if(!is.na(tests$eBird)){
+  #   eBird_df <- filter_repeat_visits(
+  #     og_data,
+  #     min_obs = 2,
+  #     max_obs = 10,
+  #     annual_closure = TRUE,
+  #     date_var = "formatted_date",
+  #     site_vars = c("locality_id", "observer_id")
+  #   )
+  #   df_to_join <- append(df_to_join, list(eBird_df))
+  #   need_L_join <- TRUE
+  # }
   
   if(!is.na(tests$eBird_simple)){
     eBird_simple_df <- filter_repeat_visits(
@@ -532,7 +542,8 @@ appendSites <- function(tests, WETA_sites, og_data, covObj=NA, truth_df=NA){
       date_var = "formatted_date",
       site_vars = c("locality_id")
     )
-    df_to_join <- append(df_to_join, list(eBird_simple_df))
+    # df_to_join <- append(df_to_join, list(eBird_simple_df))
+    df_to_join[["eBird_simple"]] <- eBird_simple_df
   }
   
   
@@ -542,19 +553,21 @@ appendSites <- function(tests, WETA_sites, og_data, covObj=NA, truth_df=NA){
       x <- subset(cpy, select = c(covObj$siteCovs, covObj$obsCovs, "latitude", "longitude"))
       kmean_res <- kmeans(x, tests$kmeans[[i]])
       cpy$site <- as.numeric(kmean_res$cluster)
-      df_to_join <- append(df_to_join, list(cpy))  
+      # df_to_join <- append(df_to_join, list(cpy))
+      df_to_join[[paste0("kmeans-", as.character(tests$agnes[[i]]))]] <- cpy
     }
   }
   
   if(length(tests$kmSq) > 0){
     for(i in 1:length(tests$kmSq)){
       kmSq.df <- kmsq.Sites(og_data, rad_m = tests$kmSq[[i]])
-      df_to_join <- append(df_to_join, list(kmSq.df))
+      # df_to_join <- append(df_to_join, list(kmSq.df))
+      df_to_join[[paste0("kmSq-", as.character(tests$kmSq[[i]]))]] <- kmSq.df
     }
   }
   
   
-  if(!is.na(tests$rounded)){
+  if(length(tests$rounded) > 0){
     for(i in tests$rounded){
       WETA_2017_i <- roundLatLong(og_data, i)
       eBird_rounded_df <- filter_repeat_visits(
@@ -565,7 +578,8 @@ appendSites <- function(tests, WETA_sites, og_data, covObj=NA, truth_df=NA){
         date_var = "formatted_date",
         site_vars = c("rounded_locality_id")
       )
-      df_to_join <- append(df_to_join, list(eBird_rounded_df))
+      # df_to_join <- append(df_to_join, list(eBird_rounded_df))
+      df_to_join[[paste0("rounded-", as.character(i))]] <- eBird_rounded_df
     }
   }
   
@@ -754,14 +768,17 @@ combineMethodsAgg <- function(proj_cent, WETA_sites, og_data, run_mod=TRUE){
 
 # examines marginal difference from 
 calcStats <- function(pred_df, og_df){
-  pred_df_uniq <- sqldf("SELECT * from pred_df GROUP BY latitude, longitude")
-  og_df_uniq <- sqldf("SELECT * from og_df GROUP BY latitude, longitude")
+  # pred_df_uniq <- sqldf("SELECT * from pred_df GROUP BY latitude, longitude")
+  # og_df_uniq <- sqldf("SELECT * from og_df GROUP BY latitude, longitude")
+  # 
+  # pred_df_uniq <- pred_df_uniq[order(pred_df_uniq$checklist_id),]
+  # og_df_uniq <- og_df_uniq[order(og_df_uniq$checklist_id),]
   
-  pred_df_uniq <- pred_df_uniq[order(pred_df_uniq$checklist_id),]
-  og_df_uniq <- og_df_uniq[order(og_df_uniq$checklist_id),]
+  pred_df <- pred_df[order(pred_df$checklist_id),]
+  og_df <- og_df[order(og_df$checklist_id),]
   
-  pred_sites <- pred_df_uniq$site
-  og_sites <- og_df_uniq$site
+  pred_sites <- pred_df$site
+  og_sites <- og_df$site
   # cmetrics = c("jaccard", "overlap", "mirkin", "f", "mmm", "nmi1", "nvi")
   ARI <- adjustedRandIndex(og_sites, pred_sites)
   
@@ -800,28 +817,33 @@ runExp <- function(tests, covObj, WETA_sites, og_data, truth_df, proj_cent, comb
   }
   
   # initialize mse list
-  mse_list <- list()
+  sites_list <- list()
   
-  # run this through an occupancy model
-  consensus_mse <- calcOccMSE(comb_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
-  mse_list <- append(mse_list, list(consensus_mse))
+  # # run this through an occupancy model
+  # consensus_mse <- calcOccMSE(comb_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
+  # mse_list[["balls"]] <- consensus_mse
+  # 
+  # aggl_consensus_mse <- calcOccMSE(comb_aggl_df_fast, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
+  # mse_list[["agglom-updated"]] <- aggl_consensus_mse
+  # 
+  # # aggl_consensus_mse <- calcOccMSE(comb_aggl_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
+  # # mse_list <- append(mse_list, list(aggl_consensus_mse))
+  # 
+  # base_mse <- calcOccMSE(truth_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
+  sites_list[["balls"]] <- comb_df
+  sites_list[["agglom"]] <- comb_aggl_df_fast
+  sites_list[["base"]] <- truth_df
   
-  aggl_consensus_mse <- calcOccMSE(comb_aggl_df_fast, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
-  mse_list <- append(mse_list, list(aggl_consensus_mse))
-  
-  # aggl_consensus_mse <- calcOccMSE(comb_aggl_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
-  # mse_list <- append(mse_list, list(aggl_consensus_mse))
-  
-  base_mse <- calcOccMSE(truth_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
   
   # calc mse for each individual method:
-  for(df in dfs_list){
-    mse.obj <- calcOccMSE(df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)  
-    mse_list <- append(mse_list, list(mse.obj))
+  for(i in 1:length(dfs_list)){
+    # mse.obj <- calcOccMSE(dfs_list[[i]], covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
+    sites_list[[names(dfs_list[i])]] <- dfs_list[[i]]
   }
+  
   return(list(
-    base.mse=base_mse, 
-    mse.list=mse_list, 
+    # base.mse=base_mse,
+    sites_list=sites_list, 
     pop.WETA.Sites=WETA_sites, 
     balls_df=comb_df, 
     aggl_df=comb_aggl_df_fast)
@@ -919,6 +941,7 @@ partialCorrectSites <- function(df, start, int){
 # helper function to link Checklists given a reduced
 # df (red_df) and a full df
 linkChecklists <- function(red_df, full_df){
+  #######
   # for(row in 1:nrow(full_df)){
   #   # disp(row)
   #   long <- full_df[row, ]$longitude
@@ -926,6 +949,7 @@ linkChecklists <- function(red_df, full_df){
   #   site_obj <- red_df[red_df$longitude == long & red_df$latitude == lat,]
   #   full_df[row,]$site <- as.character(site_obj$site)
   # }
+  #######
   for(row in 1:nrow(red_df)){
     # disp(row)
     long <- red_df[row, ]$longitude
@@ -942,12 +966,14 @@ linkChecklists <- function(red_df, full_df){
 # the tests you want to run. the parameters
 # of each test are separated with a '-'
 #
-# for example: clustGeo-.8-850
+# for example: clustGeo-.8-850, kmSq-1000, rounded-4
 genTests <- function(test_names){
-  tests <- list(rounded=NA, 
+  tests <- list(rounded=list(), 
                 base=NA,
                 eBird=NA, 
                 eBird_simple=NA,
+                eBird_lower=NA,
+                eBird_upper=NA,
                 kmSq=list(),
                 DBSC=NA,
                 GT=NA,
@@ -961,7 +987,7 @@ genTests <- function(test_names){
     t_name <- strsplit(test_names[[i]], "-")[[1]]
     
     # Need to update if we use local
-    if(t_name[1] %in% c("clustGeo", "agnes", "kmeans", "local", "kmSq")){
+    if(t_name[1] %in% c("clustGeo", "agnes", "kmeans", "local", "kmSq", "rounded")){
       
       len <- length(tests[[t_name[1]]]) + 1
       tests[[t_name[1]]][len] <- list(as.double(t_name[2:length(t_name)]))
@@ -981,24 +1007,28 @@ genTests <- function(test_names){
 setClass("Clustering", 
          slots = list(
            name="character", 
-           occ.mse="numeric", 
-           det.mse="numeric", 
+           occ.mse="list", 
+           det.mse="list",
+           prob.occ.mse="list", 
+           prob.det.mse="list",
+           svs="numeric",
+           acc.svs="numeric",
            checklist_df="data.frame",
-           simil.GT="data.frame")
+           simil.GT="list")
 )
 
 
 runStabilityExp <- function(exp, truth_df, WETA_2017, WETA_filtered, proj_cent, tests, test_names, deterministic = FALSE){
   
-  list_of_res <- vector("list", length(test_names))
+  # list_of_res <- vector("list", length(test_names))
   
   truth_df_list <- list(truth_df)
   
   if(exp == "boot"){
-    # sampleSizes <- c(nrow(truth_df))
-    sampleSizes <- c(200)
-    numExps <- 2
-    # numExps <- 10
+    sampleSizes <- c(nrow(truth_df))
+    # sampleSizes <- c(200)
+    # numExps <- 2
+    numExps <- 10
     replacement <- TRUE
     gen.new.df <- FALSE
   } else if(exp == "location"){
@@ -1021,6 +1051,8 @@ runStabilityExp <- function(exp, truth_df, WETA_2017, WETA_filtered, proj_cent, 
   for(sampSize in sampleSizes){
     aggl_df <- NA
     balls_df <- NA
+    
+    results <- list()
     for(i in 1:numExps){
       disp(paste0("running ", as.character(exp), " experiment; sample size: ", as.character(sampSize), " and exp #", as.character(i)))
       
@@ -1032,7 +1064,7 @@ runStabilityExp <- function(exp, truth_df, WETA_2017, WETA_filtered, proj_cent, 
         truth_df <- truth_df_list[[1]]
       }
       
-      og_data <- subset(WETA_2017, select = -c(site))
+      og_data <- subset(WETA_filtered_uniq, select = -c(site))
       
       og_data <- og_data[order(og_data$checklist_id),]
       truth_df <- truth_df[order(truth_df$checklist_id),]
@@ -1042,6 +1074,7 @@ runStabilityExp <- function(exp, truth_df, WETA_2017, WETA_filtered, proj_cent, 
       WETA_sites <- subset(og_data, select = c(checklist_id, vertex))
       
       if(exp == "location"){
+        # NOTE: each exp may have different total number of checklists because we are only sampling locations
         samp <- sample(seq(1:nrow(WETA_uniq)), sampSize, replace = replacement)
         W_uniq <- WETA_uniq[samp,]
         W_full <- linkChecklists(W_uniq, WETA_2017)
@@ -1075,6 +1108,10 @@ runStabilityExp <- function(exp, truth_df, WETA_2017, WETA_filtered, proj_cent, 
           # needed to run w/o error on the HPC server
           W_sites$checklist_id <- as.character(W_sites$checklist_id)
           og_d$checklist_id <- as.character(og_d$checklist_id)
+          W_sites <- W_sites[order(W_sites$checklist_id),]
+          og_d <- og_d[order(og_d$checklist_id),]
+          t_df <- t_df[order(t_df$checklist_id),]
+          p_cent <- p_cent[order(p_cent$checklist_id),]
           
           for(k in 1:nrow(W_sites)){
             if(W_sites[k,]$checklist_id %in% chklsts){
@@ -1089,6 +1126,8 @@ runStabilityExp <- function(exp, truth_df, WETA_2017, WETA_filtered, proj_cent, 
                 
                 og_d[k,]$checklist_id <- as.character(paste0("C", as.character(id)))
                 og_d[k,]$vertex <- new_vert
+                
+                t_df[k,]$checklist_id <- as.character(paste0("C", as.character(id)))
                 
                 p_cent[k,]$checklist_id <- as.character(paste0("C", as.character(id)))
                 id <- id + 1
@@ -1129,43 +1168,29 @@ runStabilityExp <- function(exp, truth_df, WETA_2017, WETA_filtered, proj_cent, 
         balls_df <- res_obj$balls_df
       }
       
-      #####
-      # similarity btwn aggl method
-      # and GT partition
-      #####
-      comp_to_ground_truth_df_i <- makeSIMIL_TO_GT.DF(res_obj, test_names)
-      
-      #####
-      # similarity btwn aggl method
-      # and each input method
-      #####
-      # simil_input_method_df_i <- makeCLUSTER_COMP.DF(res_obj, test_names)
-      
-      #####
-      # mse values
-      #####
-      mse_df_i <- makeMSE.DF(res_obj, test_names)
-      
-      
-      for(t in 1:length(test_names)){
-        t_name <- test_names[t]
-        t_res <- comp_to_ground_truth_df_i[as.character(t_name),]
-        if(is.null(list_of_res[[t]])){
-          list_of_res[[t]] <- t_res
-        } else {
-          list_of_res[[t]] <- rbind(list_of_res[[t]], t_res)
-        }
-      }
-      
-      if(i != 1){
-        temp <- cbind(comp_to_ground_truth_df, comp_to_ground_truth_df_i)
-        comp_to_ground_truth_df <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))  
+      for(j in 1:length(res_obj$sites_list)){
+        clustering <- res_obj$sites_list[j][[1]]
+        t_name <- names(res_obj$sites_list)[[j]]
         
-        temp <- cbind(mse_df, mse_df_i)
-        mse_df <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))  
-      } else {
-        comp_to_ground_truth_df <- comp_to_ground_truth_df_i
-        mse_df <- mse_df_i
+        if(!is.na(clustering)){
+          res <- clusterStats(clustering, t_df, t_name, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF)
+          if(i == 1){
+            results[[t_name]] <- new("Clustering",
+                                       name=t_name,
+                                       occ.mse=res$mse$occ,
+                                       det.mse=res$mse$det,
+                                       svs=res$svs,
+                                       acc.svs=res$acc.svs,
+                                       checklist_df=clustering,
+                                       simil.GT=res$simil.GT)
+          } else {
+            results[[t_name]]@occ.mse <- results[[t_name]]@occ.mse + res$mse$occ
+            results[[t_name]]@det.mse <- results[[t_name]]@det.mse + res$mse$det
+            results[[t_name]]@svs <- results[[t_name]]@svs + res$svs
+            results[[t_name]]@acc.svs <- results[[t_name]]@acc.svs + res$acc.svs
+            results[[t_name]]@simil.GT <- results[[t_name]]@simil.GT + res$simil.GT
+          }
+        }
       }
       
       if(gen.new.df){
@@ -1177,34 +1202,12 @@ runStabilityExp <- function(exp, truth_df, WETA_2017, WETA_filtered, proj_cent, 
       
     }
     
-    comp_to_ground_truth_df <- comp_to_ground_truth_df/numExps
-    mse_df <- mse_df/numExps
+    z <- combineIntoDF(results, numExps)
+    write.csv(z, paste0("stability-", exp, "-", as.character(sampSize), "-", as.character(numExps), "runs.csv"))
     
-    exp_type <- paste0("stability/", exp) # MUST BE distinct OR overlap OR noisy OR pCorr non-spatial OR stability OR <empty>
-    exp_name <- paste0("-stability-", sampSize)
-    write.csv(comp_to_ground_truth_df, 
-              file=paste0("aggregate clustering/results/", 
-                          exp_type, 
-                          "/similarity_to_GT_Exp", 
-                          exp_name, ".csv"))
-    write.csv(mse_df, file=paste0("aggregate clustering/results/", 
-                                  exp_type, 
-                                  "/mse", 
-                                  exp_name, ".csv"))
-    
-    for(t in 1:length(list_of_res)){
-      # exp_num <- i
-      exp_name <- paste0("-stability-", sampSize, "-", test_names[t])
-      write.csv(list_of_res[[t]], 
-                file=paste0("aggregate clustering/results/", 
-                            exp_type, 
-                            "/individual/similarity_to_GT_Exp", 
-                            exp_name, 
-                            ".csv")
-      )
-    }
-    list_of_res <- vector("list", length(test_names))
-    gen.new.df <- FALSE  
+    # each sample size uses same dfs
+    # (stored in truth_df_list)
+    gen.new.df <- FALSE
   }
   
 }
@@ -1218,26 +1221,29 @@ runStabilityExp <- function(exp, truth_df, WETA_2017, WETA_filtered, proj_cent, 
 # against the ground truth (no consensus clustering)
 baselineExp <- function(tests, og_data, covObj, truth_df){
   
-  results <- list(
-    rounded=NA, 
-    eBird=NA, 
-    eBird_simple=NA,
-    # kmSq=list(),
-    kmSq=NA,
-    DBSC=NA,
-    GT=NA,
-    noisy_gt=NA,
-    # clustGeo=list(),
-    clustGeo=NA,
-    # agnes=list(),
-    agnes=NA,
-    kmeans=NA,
-    base=list(truth_df)
-    # kmeans=list()
-    # local=list()
-  )
+  # results <- list(
+  #   rounded=NA, 
+  #   eBird=NA, 
+  #   eBird_simple=NA,
+  #   # kmSq=list(),
+  #   kmSq=NA,
+  #   DBSC=NA,
+  #   GT=NA,
+  #   noisy_gt=NA,
+  #   # clustGeo=list(),
+  #   clustGeo=NA,
+  #   # agnes=list(),
+  #   agnes=NA,
+  #   kmeans=NA,
+  #   base=list(truth_df)
+  #   # kmeans=list()
+  #   # local=list()
+  # )
   
-  if(!is.na(tests$rounded)){
+  results <- list()
+  results[["base"]] <- truth_df
+  
+  if(length(tests$rounded) > 0){
     WETA_2017_i <- roundLatLong(og_data, 4)
     eBird_rounded_df <- filter_repeat_visits(
       WETA_2017_i,
@@ -1247,7 +1253,7 @@ baselineExp <- function(tests, og_data, covObj, truth_df){
       date_var = "formatted_date",
       site_vars = c("rounded_locality_id")
     )
-    results$rounded <- list(eBird_rounded_df)
+    results[[paste0("rounded-", as.character(4))]] <- eBird_rounded_df
   }
   
   if(!is.na(tests$eBird)){
@@ -1259,7 +1265,31 @@ baselineExp <- function(tests, og_data, covObj, truth_df){
       date_var = "formatted_date",
       site_vars = c("locality_id", "observer_id")
     )
-    results$eBird <- list(eBird_df)
+    results[["eBird"]] <- eBird_df
+  }
+  
+  if(!is.na(tests$eBird_lower)){
+    eBird_df <- filter_repeat_visits(
+      og_data,
+      min_obs = 2,
+      max_obs = 1000000,
+      annual_closure = TRUE,
+      date_var = "formatted_date",
+      site_vars = c("locality_id", "observer_id")
+    )
+    results[["eBird_lower"]] <- eBird_df
+  }
+  
+  if(!is.na(tests$eBird_upper)){
+    eBird_df <- filter_repeat_visits(
+      og_data,
+      min_obs = 1,
+      max_obs = 10,
+      annual_closure = TRUE,
+      date_var = "formatted_date",
+      site_vars = c("locality_id", "observer_id")
+    )
+    results[["eBird_upper"]] <- eBird_df
   }
   
   if(!is.na(tests$eBird_simple)){
@@ -1271,7 +1301,7 @@ baselineExp <- function(tests, og_data, covObj, truth_df){
       date_var = "formatted_date",
       site_vars = c("locality_id")
     )
-    results$eBird_simple <- list(eBird_simple_df)
+    results[["eBird_simple"]] <- eBird_simple_df
   }
   
   # the issue is that checklist ID is not necc unique rn
@@ -1279,13 +1309,14 @@ baselineExp <- function(tests, og_data, covObj, truth_df){
   # i think this would actually work?
   if(!is.na(tests$DBSC)){
     DBSC_df <- runDBSC(og_data, covObj)
-    results$DBSC <- list(DBSC_df)
+    # results$DBSC <- list(DBSC_df)
+    results[["DBSC"]] <- DBSC_df
   }
   
   if(length(tests$clustGeo) > 0){
     for(i in tests$clustGeo){
       clustGeo_df_i <- clustGeoSites(alpha = i[1], og_data, covObj, num_sites = i[2])
-      results$clustGeo <- list(clustGeo_df_i)
+      results[[paste0("clustGeo-", as.character(i[1]), "-", as.character(i[2]))]] <- clustGeo_df_i
     }
   }
   
@@ -1296,7 +1327,7 @@ baselineExp <- function(tests, og_data, covObj, truth_df){
       weta_clust <- agnes(x, method = "ward")
       agnes.clusters <- cutree(as.hclust(weta_clust), k = tests$agnes[[i]])
       cpy$site <- as.numeric(agnes.clusters)
-      results$agnes <- list(cpy)
+      results[[paste0("agnes-", as.character(tests$agnes[[i]]))]] <- cpy
     }
   }
   
@@ -1306,40 +1337,130 @@ baselineExp <- function(tests, og_data, covObj, truth_df){
       x <- subset(cpy, select = c(covObj$siteCovs, covObj$obsCovs, "latitude", "longitude"))
       kmean_res <- kmeans(x, tests$kmeans[[i]])
       cpy$site <- as.numeric(kmean_res$cluster)
-      results$kmeans <- list(cpy)
+      results[[paste0("kmeans-", as.character(tests$kmeans[[i]]))]] <- cpy
     }
   }
   
   if(length(tests$kmSq) > 0){
     for(i in 1:length(tests$kmSq)){
       kmSq.df <- kmsq.Sites(og_data, rad_m = tests$kmSq[[i]])
-      results$kmSq <- list(kmSq.df)
+      results[[paste0("kmSq-", as.character(tests$kmSq[[i]]))]] <- kmSq.df
     }
   }
   return(results)
 }
 
 
-
+calcAccSingleVisitSites <- function(checklist_df, truth_df){
+  visit.freq <- data.frame(table(checklist_df$site))
+  single_visit_sites <- visit.freq[visit.freq$Freq == 1,]$Var1
+  chklsts <- checklist_df[checklist_df$site %in% single_visit_sites,]$checklist_id
+  
+  true.visit.freq <- data.frame(table(truth_df$site))
+  true.single_visit_sites <- true.visit.freq[true.visit.freq$Freq == 1,]$Var1
+  true.chklsts <- truth_df[truth_df$site %in% true.single_visit_sites,]$checklist_id
+  
+  acc.svs <- intersect(chklsts, true.chklsts)
+  
+  return(length(acc.svs))
+}
 
 # simil.GT <- calcStats(clustGeo_df.850.8, truth_df)
 # # z <- as.data.frame(simil.GT, row.names = "bimbo")
-clusterStats <- function(checklist_df, truth_df, test_name, covObj, occ_coeff, det_coeff){
+
+# prob_MSE is MSE calculated as the average difference between true probability and predicted probability
+clusterStats <- function(checklist_df, truth_df, og_data, test_name, covObj, occ_coeff, det_coeff, full_df=data.frame(), prob_MSE=FALSE){
+  
+  stopifnot(og_data$checklist_id == truth_df$checklist_id)
+  # stopifnot(checklist_df$checklist_id == truth_df$checklist_id)
+  checklist_df <- subset(checklist_df, select = -c(species_observed_syn))
+  checklist_df <- sqldf("SELECT c.*, o.species_observed_syn FROM checklist_df c 
+                       INNER JOIN og_data o on c.checklist_id == o.checklist_id")
+
+  # checklist_df$species_observed_syn <- og_data$species_observed_syn
+  
+  # if(nrow(full_df) > 0){
+  #   checklist_df <- linkChecklists(checklist_df, full_df)
+  #   truth_df <- linkChecklists(truth_df, full_df)
+  # }
+  if(prob_MSE){
+    t_df <- truth_df
+  } else {
+    t_df <- data.frame()
+  }
   mse.obj <- calcOccMSE(
-    checklist_df, 
-    covObj, 
-    true_occ_coefficients = occ_coeff, 
+    checklist_df,
+    covObj,
+    true_occ_coefficients = occ_coeff,
     true_det_coefficients = det_coeff,
-    syn_spec = T)
+    syn_spec = T,
+    truth_df = t_df)
+  
+  # mse.obj <- list()
+  # mse.obj$mse <- list(occ=0,det=0)
+  
+  svs <- data.frame(table(table(checklist_df$site)))["1",]$Freq
+  if(as.character(data.frame(table(table(checklist_df$site)))["1",]$Var1) != "1"){
+    svs <- 0
+  }
+  
+  acc.svs <- calcAccSingleVisitSites(checklist_df, truth_df)
   
   if(length(checklist_df$site) != length(truth_df$site)){
-    simil.GT <- as.data.frame(0, row.names = test_name)
+    # TODO: hard coded CLUSTER METRICS HERE
+    simil.GT <- base::as.data.frame(matrix(data=0, nrow=1,ncol=6, dimnames = list(test_name, c("purity", "ARI", "NMI", "AMI", "NID", "NVI"))))
   } else {
     simil.GT <- calcStats(checklist_df, truth_df)
     simil.GT <- as.data.frame(simil.GT, row.names = test_name)  
   }
   
-  return(list(mse=mse.obj$mse, simil.GT=simil.GT))
+  return(list(mse=mse.obj$mse, prob_mse=mse.obj$prob_mse, simil.GT=simil.GT, svs=svs, acc.svs=acc.svs))
 }
+
+
+combineIntoDF <- function(results.obj, numExps){
+  res <- NA
+  for(i in 1:length(results.obj)){
+    cl <- results.obj[[i]]
+    if(!is.na(cl)){
+      row_df <- cbind(cl@simil.GT, occ=cl@occ.mse, det=cl@det.mse, svs=cl@svs, acc_svs=cl@acc.svs)
+      if(is.na(res)){
+        res <- row_df
+      } else {
+        res <- rbind(res, row_df)
+      }
+    }
+  }
+  z <- res/numExps
+  return(z)
+}
+
+
+
+
+
+# given a df with some svs, filter
+# out all checklists with the same lat/long as these svs
+filterOutSVS <- function(df){
+  
+  # GET THE SINGLE VISIT SITES
+  WETA_sites <- sqldf("SELECT site, count(site) visits from df GROUP BY site")
+  WETA_svs <- WETA_sites[WETA_sites$visits == 1,]
+  # disp("number svs: ", nrow(WETA_svs))
+  WETA_svs_updated <- sqldf("SELECT latlong, WETA_svs.* FROM WETA_svs JOIN df on df.site == WETA_svs.site")
+  
+  # SELECT ONLY THE CHECKLISTS W/ a LATLONG DIFFERENT FROM THE SET OF SVS
+  WETA_filter <- df[!(df$latlong %in% WETA_svs_updated$latlong),]
+    
+  # sqldf("SELECT * FROM df WHERE latlong NOT IN (SELECT latlong FROM WETA_svs_updated)")
+  # nrow(WETA_filter)
+  return(WETA_filter)
+}
+
+
+
+
+
+
 
 

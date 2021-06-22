@@ -1,0 +1,227 @@
+Linking to GEOS 3.4.2, GDAL 2.4.4, PROJ 4.8.0
+rgeos version: 0.5-3, (SVN revision 634)
+ GEOS runtime version: 3.4.2-CAPI-1.8.2 
+ Linking to sp version: 1.4-2 
+ Polygon checking: TRUE 
+
+Loading required package: gsubfn
+Loading required package: proto
+Loading required package: RSQLite
+
+Attaching package: ‘RTriangle’
+
+The following object is masked from ‘package:rgeos’:
+
+    triangulate
+
+
+Attaching package: ‘igraph’
+
+The following object is masked from ‘package:rgeos’:
+
+    union
+
+The following object is masked from ‘package:raster’:
+
+    union
+
+The following objects are masked from ‘package:stats’:
+
+    decompose, spectrum
+
+The following object is masked from ‘package:base’:
+
+    union
+
+Loading required package: ggplot2
+Loading required package: dplyr
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:igraph’:
+
+    as_data_frame, groups, union
+
+The following objects are masked from ‘package:rgeos’:
+
+    intersect, setdiff, union
+
+The following objects are masked from ‘package:raster’:
+
+    intersect, select, union
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+Loading required package: gridExtra
+
+Attaching package: ‘gridExtra’
+
+The following object is masked from ‘package:dplyr’:
+
+    combine
+
+Loading required package: reshape2
+
+========================================
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! The tcR package WILL SOON BE ORPHANED 
+!! AND REMOVED FROM CRAN.
+!!
+!! A new package is available that is 
+!! designed to replace tcR: 
+!! immunarch  --  https://immunarch.com/
+!!
+!! We will be happy to help you to move
+!! to the new package. Feel free to contact us:
+!! http://github.com/immunomind/immunarch
+!!
+!! Sincerely, 
+!!  immunarch dev team and 
+!!  Vadim I. Nazarov, lead developer of tcR
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+=======================================
+
+Attaching package: ‘tcR’
+
+The following object is masked from ‘package:igraph’:
+
+    diversity
+
+The following object is masked from ‘package:raster’:
+
+    resample
+
+Warning message:
+no DISPLAY variable so Tk is not available 
+
+Attaching package: ‘lubridate’
+
+The following objects are masked from ‘package:igraph’:
+
+    %--%, union
+
+The following objects are masked from ‘package:rgeos’:
+
+    intersect, setdiff, union
+
+The following objects are masked from ‘package:raster’:
+
+    intersect, union
+
+The following objects are masked from ‘package:base’:
+
+    date, intersect, setdiff, union
+
+
+Attaching package: ‘MLmetrics’
+
+The following object is masked from ‘package:base’:
+
+    Recall
+
+auk 0.4.1 is designed for EBD files downloaded after 2019-08-15. 
+EBD data directory:  /nfs/stak/users/rothmark/Documents/siteDef 
+eBird taxonomy version:  2019
+Loading required package: lattice
+
+Attaching package: ‘unmarked’
+
+The following objects are masked from ‘package:raster’:
+
+    coordinates, getData, projection
+
+The following object is masked from ‘package:sp’:
+
+    coordinates
+
+
+Attaching package: ‘data.table’
+
+The following objects are masked from ‘package:lubridate’:
+
+    hour, isoweek, mday, minute, month, quarter, second, wday, week,
+    yday, year
+
+The following objects are masked from ‘package:reshape2’:
+
+    dcast, melt
+
+The following objects are masked from ‘package:dplyr’:
+
+    between, first, last
+
+The following object is masked from ‘package:raster’:
+
+    shift
+
+
+Attaching package: ‘pracma’
+
+The following object is masked from ‘package:unmarked’:
+
+    hessian
+
+SDraw - Sample Draws (v 2.1.13)
+
+Attaching package: ‘SDraw’
+
+The following object is masked from ‘package:pracma’:
+
+    primes
+
+
+Attaching package: ‘Xmisc’
+
+The following object is masked from ‘package:gsubfn’:
+
+    cat0
+
+The following object is masked from ‘package:base’:
+
+    dir.exists
+
+locfit 1.5-9.4 	 2020-03-24
+Package 'mclust' version 5.4.6
+Type 'citation("mclust")' for citing this R package in publications.
+rgdal: version: 1.5-12, (SVN revision 1018)
+Geospatial Data Abstraction Library extensions to R successfully loaded
+Loaded GDAL runtime: GDAL 2.4.4, released 2020/01/08
+Path to GDAL shared files: /nfs/stak/a1/rhel5apps/spack/opt/spack/linux-centos7-nehalem/gcc-4.8.5/gdal-2.4.4-usyxcuumbafr4ow4535rsn5zdi6f27fm/share/gdal
+GDAL binary built with GEOS: FALSE 
+Loaded PROJ runtime: Rel. 4.8.0, 6 March 2012, [PJ_VERSION: 480]
+Path to PROJ shared files: (autodetected)
+Linking to sp version:1.4-2
+Checking rgeos availability: TRUE
+To access larger datasets in this package, install the spDataLarge
+package with: `install.packages('spDataLarge',
+repos='https://nowosad.github.io/drat/', type='source')`
+
+Attaching package: ‘gtools’
+
+The following object is masked from ‘package:pracma’:
+
+    logit
+
+The following object is masked from ‘package:igraph’:
+
+    permute
+
+
+Attaching package: ‘aricode’
+
+The following object is masked from ‘package:tcR’:
+
+    entropy
+
+Error in clusterStats(clustering, truth_df, t_name, covObj, TRUE_OCC_COEFF,  : 
+  unused argument (prob_MSE = TRUE)
+In addition: Warning message:
+In if (!is.na(clustering)) { :
+  the condition has length > 1 and only the first element will be used
+Execution halted

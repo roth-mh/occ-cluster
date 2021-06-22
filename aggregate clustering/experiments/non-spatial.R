@@ -9,7 +9,7 @@ library(sp)
 library(raster)
 library(dbscan)
 library(cluster)
-# setwd("/Users/MarkRoth/Documents/Oregon State/Research/eBird/occ and grouping checklists/occ-cluster/")
+setwd("/Users/MarkRoth/Documents/Oregon State/Research/eBird/occ and grouping checklists/occ-cluster/")
 source("helper/DBSC/DBSCHelper.R")
 source("helper/ClustGeo/clustGeoHelper.R")
 source("helper/helpers.R")
@@ -24,12 +24,13 @@ obj <- load.WETA()
 WETA_2017 <- obj[[1]]
 covObj <- obj[[2]]
 
-# TODO: order matters, must be sorted after the first two
+
 test_names.A <- list("balls",
                      "agglom-updated",
                      "clustGeo-.8-850",
                      "DBSC",
-                     "eBird_simple")
+                     "eBird_simple",
+                     "all_svs")
 
 test_names.B <- list("balls", 
                      "agglom-updated", 
@@ -37,6 +38,16 @@ test_names.B <- list("balls",
                      "clustGeo-.8-850",
                      "DBSC",
                      "eBird_simple")
+
+# xyz_names <- list("balls", 
+#                      "agglom-updated", 
+#                      "agnes-150",
+#                      "clustGeo-.8-150",
+#                      "DBSC",
+#                      "eBird_simple",
+#                      "rounded-4")
+# tests.xyz <- genTests(xyz_names)
+
 
 tests.A <- genTests(test_names.A)
 tests.B <- genTests(test_names.B)
@@ -62,20 +73,25 @@ if(length(preLoad) == 0){
   WETA_filtered <- preLoad[[2]]
 }
 
-truth_df <- populateDF(WETA_filtered, covObj$siteCovs, covObj$obsCovs, unique(WETA_filtered$site), TRUE_OCC_COEFF, TRUE_DET_COEFF)  
+WETA_filtered_uniq <- sqldf("SELECT * from WETA_filtered GROUP BY latitude, longitude")
+truth_df <- populateDF(WETA_filtered_uniq, covObj$siteCovs, covObj$obsCovs, unique(WETA_filtered_uniq$site), TRUE_OCC_COEFF, TRUE_DET_COEFF)  
 gen.new.df <- TRUE
 local_test <- FALSE
 
-list_of_res.A <- vector("list", length(test_names.A))
-list_of_res.B <- vector("list", length(test_names.B))
+results.A <- list()
+results.B <- list()
 
-numExps <- 10
+numExps <- 20
+aggl_df.A <- NA
+balls_df.A <- NA
+aggl_df.B <- NA
+balls_df.B <- NA
 for(i in 1:numExps){
   
-  WETA_2017$site <- -1
-  WETA_2017$vertex <- seq(1:nrow(WETA_2017))
+  WETA_filtered_uniq$site <- -1
+  WETA_filtered_uniq$vertex <- seq(1:nrow(WETA_filtered_uniq))
   
-  og_data <- subset(WETA_2017, select = -c(site))
+  og_data <- subset(WETA_filtered_uniq, select = -c(site))
   
   og_data <- og_data[order(og_data$checklist_id),]
   truth_df <- truth_df[order(truth_df$checklist_id),]
@@ -99,126 +115,75 @@ for(i in 1:numExps){
   }
   
   stopifnot(og_d$checklist_id == t_df$checklist_id)             
-  res_obj.A <- runExp(tests.A, covObj, W_sites, og_d, t_df, p_cent)
-  res_obj.B <- runExp(tests.B, covObj, W_sites, og_d, t_df, p_cent)
+  res_obj.A <- runExp(tests.A, covObj, W_sites, og_d, t_df, p_cent, comb_df = balls_df.A, comb_aggl_df_fast = aggl_df.A)
+  res_obj.B <- runExp(tests.B, covObj, W_sites, og_d, t_df, p_cent, comb_df = balls_df.B, comb_aggl_df_fast = aggl_df.B)
   
-  #####
-  # similarity btwn aggl method
-  # and GT partition
-  #####
-  comp_to_ground_truth_df_i.A <- makeSIMIL_TO_GT.DF(res_obj.A, test_names.A)
-  comp_to_ground_truth_df_i.B <- makeSIMIL_TO_GT.DF(res_obj.B, test_names.B)
-  
-  #####
-  # similarity btwn aggl method
-  # and each input method
-  #####
-  # simil_input_method_df.A <- makeCLUSTER_COMP.DF(res_obj.A, test_names.A)
-  # simil_input_method_df.B <- makeCLUSTER_COMP.DF(res_obj.B, test_names.B)
-  
-  #####
-  # mse values
-  #####
-  mse_df_i.A <- makeMSE.DF(res_obj.A, test_names.A)
-  mse_df_i.B <- makeMSE.DF(res_obj.B, test_names.B)
-  
-  
-  for(t in 1:length(test_names.A)){
-    t_name <- test_names.A[t]
-    t_res <- comp_to_ground_truth_df_i.A[as.character(t_name),]
-    if(is.null(list_of_res.A[[t]])){
-      list_of_res.A[[t]] <- t_res
-    } else {
-      list_of_res.A[[t]] <- rbind(list_of_res.A[[t]], t_res)
-    }
-  }
-  
-  for(t in 1:length(test_names.B)){
-    t_name <- test_names.B[t]
-    t_res <- comp_to_ground_truth_df_i.B[as.character(t_name),]
-    if(is.null(list_of_res.B[[t]])){
-      list_of_res.B[[t]] <- t_res
-    } else {
-      list_of_res.B[[t]] <- rbind(list_of_res.B[[t]], t_res)
-    }
-  }
-  
-  
-  if(i != 1){
-    temp <- cbind(comp_to_ground_truth_df.A, comp_to_ground_truth_df_i.A)
-    comp_to_ground_truth_df.A <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))  
-    
-    temp <- cbind(mse_df.A, mse_df_i.A)
-    mse_df.A <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))  
-    
-    temp <- cbind(comp_to_ground_truth_df.B, comp_to_ground_truth_df_i.B)
-    comp_to_ground_truth_df.B <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))
+  aggl_df.A <- res_obj.A$aggl_df
+  balls_df.A <- res_obj.A$balls_df
+  aggl_df.B <- res_obj.B$aggl_df
+  balls_df.B <- res_obj.B$balls_df
 
-    temp <- cbind(mse_df.B, mse_df_i.B)
-    mse_df.B <- sapply(unique(colnames(temp)), function(x) rowSums(temp[, colnames(temp) == x, drop = FALSE]))
-  } else {
-    comp_to_ground_truth_df.A <- comp_to_ground_truth_df_i.A
-    mse_df.A <- mse_df_i.A
-    # instead of this madness i should just run RunExp twice while passing in truth_df
-    comp_to_ground_truth_df.B <- comp_to_ground_truth_df_i.B
-    mse_df.B <- mse_df_i.B
+  for(j in 1:length(res_obj.A$sites_list)){
+    clustering <- res_obj.A$sites_list[j][[1]]
+    t_name <- names(res_obj.A$sites_list)[[j]]
+    
+    if(!is.na(clustering)){
+      res <- clusterStats(clustering, t_df, t_name, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF)
+      if(i == 1){
+        results.A[[t_name]] <- new("Clustering",
+                                 name=t_name,
+                                 occ.mse=res$mse$occ,
+                                 det.mse=res$mse$det,
+                                 svs=res$svs,
+                                 acc.svs=res$acc.svs,
+                                 checklist_df=clustering,
+                                 simil.GT=res$simil.GT)
+      } else {
+        results.A[[t_name]]@occ.mse <- results.A[[t_name]]@occ.mse + res$mse$occ
+        results.A[[t_name]]@det.mse <- results.A[[t_name]]@det.mse + res$mse$det
+        results.A[[t_name]]@svs <- results.A[[t_name]]@svs + res$svs
+        results.A[[t_name]]@acc.svs <- results.A[[t_name]]@acc.svs + res$acc.svs
+        results.A[[t_name]]@simil.GT <- results.A[[t_name]]@simil.GT + res$simil.GT
+      }
+    }
+  }
+  
+  for(j in 1:length(res_obj.B$sites_list)){
+    clustering <- res_obj.B$sites_list[j][[1]]
+    t_name <- names(res_obj.B$sites_list)[[j]]
+    
+    if(!is.na(clustering)){
+      res <- clusterStats(clustering, t_df, t_name, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF)
+      # if(is.na(results[[t_name]])){
+      if(i == 1){
+        results.B[[t_name]] <- new("Clustering",
+                                 name=t_name,
+                                 occ.mse=res$mse$occ,
+                                 det.mse=res$mse$det,
+                                 svs=res$svs,
+                                 acc.svs=res$acc.svs,
+                                 checklist_df=clustering,
+                                 simil.GT=res$simil.GT)
+      } else {
+        results.B[[t_name]]@occ.mse <- results.B[[t_name]]@occ.mse + res$mse$occ
+        results.B[[t_name]]@det.mse <- results.B[[t_name]]@det.mse + res$mse$det
+        results.B[[t_name]]@svs <- results.B[[t_name]]@svs + res$svs
+        results.B[[t_name]]@acc.svs <- results.B[[t_name]]@acc.svs + res$acc.svs
+        results.B[[t_name]]@simil.GT <- results.B[[t_name]]@simil.GT + res$simil.GT
+      }
+    }
   }
 
   if(gen.new.df){
     TRUE_OCC_COEFF <- runif(6, -1.5, 1.5)
     TRUE_DET_COEFF <- runif(6, -1.5, 1.5)
-    truth_df <- populateDF(WETA_filtered, covObj$siteCovs, covObj$obsCovs, unique(WETA_filtered$site), TRUE_OCC_COEFF, TRUE_DET_COEFF)      
+    truth_df <- populateDF(WETA_filtered_uniq, covObj$siteCovs, covObj$obsCovs, unique(WETA_filtered_uniq$site), TRUE_OCC_COEFF, TRUE_DET_COEFF)      
   }
   
 }
 
-comp_to_ground_truth_df.A <- comp_to_ground_truth_df.A/numExps
-mse_df.A <- mse_df.A/numExps
+z.A <- combineIntoDF(results.A, numExps)
+write.csv(z.A, "non-spatial-20exps-A.csv")
 
-comp_to_ground_truth_df.B <- comp_to_ground_truth_df.B/numExps
-mse_df.B <- mse_df.B/numExps
-
-exp_type <- "non-spatial" # MUST BE distinct OR overlap OR noisy OR pCorr non-spatial OR <empty>
-exp_name <- paste0("-", exp_type, "-totals")
-write.csv(comp_to_ground_truth_df.A, 
-          file=paste0("aggregate clustering/results/", 
-                      exp_type, 
-                      "/similarity_to_GT_Exp", 
-                      exp_name, 
-                      "-A.csv")
-          )
-
-write.csv(comp_to_ground_truth_df.B, 
-          file=paste0("aggregate clustering/results/", 
-                      exp_type, 
-                      "/similarity_to_GT_Exp", 
-                      exp_name, 
-                      "-B.csv")
-)
-
-write.csv(mse_df.B, file=paste0("aggregate clustering/results/", exp_type, "/mse", exp_name, "-B.csv"))
-write.csv(mse_df.A, file=paste0("aggregate clustering/results/", exp_type, "/mse", exp_name, "-A.csv"))  
-for(t in 1:length(list_of_res.A)){
-  # exp_num <- i
-  exp_name <- paste0("-", test_names.A[t])
-  write.csv(list_of_res.A[[t]], 
-            file=paste0("aggregate clustering/results/", 
-                        exp_type, 
-                        "/individual/similarity_to_GT_Exp", 
-                        exp_name, 
-                        "-A.csv")
-            )
-}
-
-
-for(t in 1:length(list_of_res.B)){
-  # exp_num <- i
-  exp_name <- paste0("-", test_names.B[t])
-  write.csv(list_of_res.B[[t]], 
-            file=paste0("aggregate clustering/results/", 
-                        exp_type, 
-                        "/individual/similarity_to_GT_Exp", 
-                        exp_name, 
-                        "-B.csv")
-  )
-}
+z.B <- combineIntoDF(results.B, numExps)
+write.csv(z.B, "non-spatial-20exps-B.csv")

@@ -11,9 +11,9 @@ populateDF <- function(sites_df, occ_cov_list, det_cov_list, sites_list, occ_coe
   j<-0
   for(eBird_site in sites_list){
     j = j+1
-    if(j %% 100 == 0){
-      print(j)
-    }
+    # if(j %% 100 == 0){
+    #   print(j)
+    # }
     checklists_at_site <- subset(sites_df[sites_df$site == eBird_site,])
     # choose random site to serve as the occ prob (and occ covariates) baseline
     
@@ -64,48 +64,5 @@ populateDF <- function(sites_df, occ_cov_list, det_cov_list, sites_list, occ_coe
   disp("number of occupied sites is ", as.character(sum(occ_sites)))
   return(clust_geo_df)
 }
-#########
-# kmSq <- kmsq.MSE(WETA_df = WETA_2017, rad_m = 1000)
-# # setup the ground truth
-# truth_df <- populateDF(kmSq, covObj$siteCovs, covObj$obsCovs, unique(kmSq$site))
-# ret_df <- truth_df
-# ##########
-# # setup to feed df into other clustering algs
-# truth_df <- subset(truth_df, select = -c(site))
-# ##########
-# # filter into sites
-# ##########
-# sites_ebird_filter <- filter_repeat_visits(truth_df, min_obs = MIN_OBS, max_obs = MAX_OBS, annual_closure = TRUE, date_var = "formatted_date", site_vars = c("locality_id", "observer_id"))
-# WETA_2017_4 <- roundLatLong(truth_df, 4)
-# sites_ebird_filter_ROUNDED <- filter_repeat_visits(WETA_2017_4, min_obs = MIN_OBS, max_obs = MAX_OBS, annual_closure = TRUE, date_var = "formatted_date", site_vars = c("rounded_locality_id", "observer_id"))
-# ##########
-# 
-# # nbs <- findNeighbors2(as.data.frame(truth_df), .001)
-# # S.MSE <- calcSKATER.MSE2(truth_df, nbs, covObj, num_sites = 900)
-# S.MSE <- calcSKATER.MSE(truth_df, covObj, numSites = 900, enforce_false_p = FALSE)
-# clust.MSE <- calcClustGeoMSE(.8, truth_df, covObj, num_sites = 915, enforce_false_p = FALSE)
-# 
-# rounded_MSE <- calcOccMSE(sites_df = sites_ebird_filter_ROUNDED, covariate_object = covObj, true_occ_coefficients = TRUE_OCC_COEFF, true_det_coefficients = TRUE_DET_COEFF, syn_spec = TRUE)
-# eBird_MSE <- calcOccMSE(sites_df = sites_ebird_filter, covariate_object = covObj, true_occ_coefficients = TRUE_OCC_COEFF, true_det_coefficients = TRUE_DET_COEFF, syn_spec = TRUE)
-# 
-# 
-# eBird_MSE$mse
-# rounded_MSE$mse
-# clust.MSE$mse
-# S.MSE$mse
-# 
-# 
-# adjustedRandIndex(ret_df$site, clust.MSE$checklists$site)
-# adjustedRandIndex(ret_df$site, S.MSE$checklists$site)
-# # adjustedRandIndex(ret_df$site, kmSq.MSE$checklists$site)
-# adjustedRandIndex(ret_df$site, eBird_MSE$checklists$site)
-# adjustedRandIndex(ret_df$site, rounded_MSE$checklists$site)
-# ##########
-# 
-# eBird_stats <- siteStatsDt(eBird_MSE$checklists, covObj = covObj)
-# rounded_stats <- siteStatsDt(rounded_MSE$checklists, covObj = covObj)
-# clust_stats <- siteStatsDt(clust.MSE$checklists, covObj = covObj)
-# SKATER_stats <- siteStatsDt(S.MSE$checklists, covObj = covObj)
-# 
-# kmSq_stats <- siteStatsDt(kmSq.MSE$checklists, covObj = covObj)
-# 
+
+

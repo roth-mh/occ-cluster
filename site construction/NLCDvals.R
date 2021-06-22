@@ -105,6 +105,36 @@ getResistVal <- function(val){
   }
 }
 
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
+
+
+# ex: trCorr2, WETA_in_box, "Checklists near river + highway w/ populated resistance values"
+plotDistMatrix <- function(transition_layer, WETA_in_box, title_text){
+  cdCorr <- commuteDistance(transition_layer, WETA_in_box@coords)
+  
+  
+  dim <- nrow(WETA_in_box@coords)
+  chklsts <- WETA_in_box$`WETA_coords_df$checklist_id`
+  # cormat <- get_upper_tri(as.matrix(cdCorr))
+  cormat <- as.matrix(cdCorr)
+  colnames(cormat) <- as.character(chklsts)
+  rownames(cormat) <- as.character(chklsts)
+  m <- melt(cormat)
+  
+  m$value_hundT<-round(m$value/100000, 2)
+  p <- ggplot(data = m, aes(x=Var1, y=Var2, fill=value_hundT)) +
+    geom_tile() +  geom_text(aes(label = value_hundT), color = "black", size = 3) +
+    theme(axis.text.x=element_text(angle = -90, hjust = 0)) + 
+    ggtitle(title_text)
+  return(p)
+}
+
+
+
+
 
 ############################################
 # ? # x == 0 ~  "no value?",

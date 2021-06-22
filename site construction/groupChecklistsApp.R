@@ -9,6 +9,7 @@ f_name <- "../../../clusteredSites_2020-12-26_.csv"
 clusted_sites <- read.delim(f_name, sep=",")
 
 unique_location_checklists <- clusted_sites
+# unique_location_checklists$site <- -1
 # 
 # f_in_WETA <- "eBird/Class Imbalance/generate syn spec/data/linear/syn_species_1_2017.csv"
 # WETA_2017 <- read.delim(f_in_WETA, header=TRUE, sep = ",")
@@ -66,6 +67,7 @@ runMap <- function(){
   ui <- fluidPage(
     leafletOutput("mymap"),
     p(),
+    actionButton("browser", "Trigger Browser"),
     actionButton("createSite", "Create Site"),
     actionButton("clearCluster", "Clear Cluster"),
     actionButton("endSession", "Return Checklists"),
@@ -88,25 +90,28 @@ runMap <- function(){
           fillColor = c_func(unique_location_checklists$site),
           fillOpacity = .7,
           lng=unique_location_checklists$longitude,
-          lat=unique_location_checklists$latitude,
+          lat=unique_location_checklists$latitude
+          # ,
           # data=unique_location_checklists$checklist_id,
-          popup = paste0(
-            "<b>summer_nbr_TCB_mean_2400: </b>",
-            round(unique_location_checklists$summer_nbr_TCB_mean_2400,4),
-            "<br>",
-            "<b>spring_nbr_TCG_mean_75: </b>",
-            round(unique_location_checklists$spring_nbr_TCG_mean_75,4),
-            "<br>",
-            "<b>fall_nbr_B2_stdDev_300: </b>",
-            round(unique_location_checklists$fall_nbr_B2_stdDev_300,4),
-            "<br>",
-            "<b>slope_mean_300: </b>",
-            round(unique_location_checklists$slope_mean_300,4),
-            "<br>",
-            "<b>summer_b5_B4_stdDev_1200: </b>",
-            round(unique_location_checklists$summer_b5_B4_stdDev_1200,4),
-            "<br>"),
-          options = popupOptions(closeOnClick = FALSE)
+          # popup = paste0(
+          #   "<b>summer_nbr_TCB_mean_2400: </b>",
+          #   round(unique_location_checklists$summer_nbr_TCB_mean_2400,4),
+          #   "<br>",
+          #   "<b>spring_nbr_TCG_mean_75: </b>",
+          #   round(unique_location_checklists$spring_nbr_TCG_mean_75,4),
+          #   "<br>",
+          #   "<b>fall_nbr_B2_stdDev_300: </b>",
+          #   round(unique_location_checklists$fall_nbr_B2_stdDev_300,4),
+          #   "<br>",
+          #   "<b>slope_mean_300: </b>",
+          #   round(unique_location_checklists$slope_mean_300,4),
+          #   "<br>",
+          #   "<b>summer_b5_B4_stdDev_1200: </b>",
+          #   round(unique_location_checklists$summer_b5_B4_stdDev_1200,4),
+          #   "<br>")
+          # popup = paste0("checklist_id: ", unique_location_checklists$checklist_id)
+          # ,
+          # options = popupOptions(closeOnClick = FALSE)
         ) %>% addScaleBar(position = "bottomright") %>%
         addProviderTiles('Esri.WorldImagery')
     })
@@ -129,31 +134,36 @@ runMap <- function(){
               lng=checklist$longitude,
               lat=checklist$latitude,
               fillColor = color_li(x$site),
-              fillOpacity = .4,
+              fillOpacity = .4
+              # ,
               # layerId = x$site,
               # data=unique_location_checklists$checklist_id,
-              popup = paste0(
-                "<b>summer_nbr_TCB_mean_2400: </b>",
-                round(unique_location_checklists$summer_nbr_TCB_mean_2400,4),
-                "<br>",
-                "<b>spring_nbr_TCG_mean_75: </b>",
-                round(unique_location_checklists$spring_nbr_TCG_mean_75,4),
-                "<br>",
-                "<b>fall_nbr_B2_stdDev_300: </b>",
-                round(unique_location_checklists$fall_nbr_B2_stdDev_300,4),
-                "<br>",
-                "<b>slope_mean_300: </b>",
-                round(unique_location_checklists$slope_mean_300,4),
-                "<br>",
-                "<b>summer_b5_B4_stdDev_1200: </b>",
-                round(unique_location_checklists$summer_b5_B4_stdDev_1200,4),
-                "<br>"),
-              options = popupOptions(closeOnClick = FALSE)
+              # popup = paste0(
+              #   "<b>summer_nbr_TCB_mean_2400: </b>",
+              #   round(unique_location_checklists$summer_nbr_TCB_mean_2400,4),
+              #   "<br>",
+              #   "<b>spring_nbr_TCG_mean_75: </b>",
+              #   round(unique_location_checklists$spring_nbr_TCG_mean_75,4),
+              #   "<br>",
+              #   "<b>fall_nbr_B2_stdDev_300: </b>",
+              #   round(unique_location_checklists$fall_nbr_B2_stdDev_300,4),
+              #   "<br>",
+              #   "<b>slope_mean_300: </b>",
+              #   round(unique_location_checklists$slope_mean_300,4),
+              #   "<br>",
+              #   "<b>summer_b5_B4_stdDev_1200: </b>",
+              #   round(unique_location_checklists$summer_b5_B4_stdDev_1200,4),
+              #   "<br>")
+              # popup = paste0("checklist_id: ", unique_location_checklists$checklist_id)
+              # ,
+              # options = popupOptions(closeOnClick = FALSE)
             ) %>% addScaleBar(position = "bottomright") %>%
             addProviderTiles('Esri.WorldImagery')
         }
       }
     })
+    
+    observeEvent(input$browser, {browser()})
     
     observeEvent(input$endSession, {
       stopApp(df_var$df)
@@ -256,27 +266,27 @@ df_pls <- runApp(runMap())
 #####
 # visualize the sites
 #####
-sites_to_viz <- DBSC.sites
+# sites_to_viz <- DBSC.sites
+# 
+# l <- leaflet() %>% addTiles() %>%
+#   addCircleMarkers(
+#     fillColor = c_func(sites_to_viz$site),
+#     fillOpacity = .7,
+#     lng=sites_to_viz$longitude,
+#     lat=sites_to_viz$latitude,
+#     # data=unique_location_checklists$checklist_id,
+#     popup = paste0(as.character(sites_to_viz$site)),
+#     options = popupOptions(closeOnClick = FALSE)
+#   ) %>% addScaleBar(position = "bottomright") %>%
+#   addProviderTiles('Esri.WorldImagery') 
+# 
+# for(s in unique(sites_to_viz$site)){
+#   set_of_pts <- sites_to_viz[sites_to_viz$site == s,]
+#   # disp(x$site)
+#   ch_open <- chull(set_of_pts[c('latitude', 'longitude')])
+#   ch <- c(ch_open, ch_open[1])
+#   edge_pts <- set_of_pts[ch,]
+#   l <- l %>% addPolygons(lng=edge_pts$longitude, lat=edge_pts$latitude, fillColor = 'red', fillOpacity = .75)
+# }
 
-l <- leaflet() %>% addTiles() %>%
-  addCircleMarkers(
-    fillColor = c_func(sites_to_viz$site),
-    fillOpacity = .7,
-    lng=sites_to_viz$longitude,
-    lat=sites_to_viz$latitude,
-    # data=unique_location_checklists$checklist_id,
-    popup = paste0(as.character(sites_to_viz$site)),
-    options = popupOptions(closeOnClick = FALSE)
-  ) %>% addScaleBar(position = "bottomright") %>%
-  addProviderTiles('Esri.WorldImagery') 
-
-for(s in unique(sites_to_viz$site)){
-  set_of_pts <- sites_to_viz[sites_to_viz$site == s,]
-  # disp(x$site)
-  ch_open <- chull(set_of_pts[c('latitude', 'longitude')])
-  ch <- c(ch_open, ch_open[1])
-  edge_pts <- set_of_pts[ch,]
-  l <- l %>% addPolygons(lng=edge_pts$longitude, lat=edge_pts$latitude, fillColor = 'red', fillOpacity = .75)
-}
-l
 

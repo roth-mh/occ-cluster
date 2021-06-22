@@ -4,10 +4,12 @@ library(raster)
 library(gdistance)
 library(sf)
 library(ggplot2)
+library(gridExtra)
 
 setwd("/Users/MarkRoth/Documents/Oregon State/Research/eBird/occ and grouping checklists/occ-cluster/")
 source("site construction/NLCDvals.R")
 source("helper/helpers.R")
+source("site construction/transition_updated.R")
 
 
 #######################################
@@ -19,7 +21,7 @@ ras.OR <- raster("~/Documents/Oregon State/Research/eBird/occ and grouping check
 ras.OR2 <- raster("~/Documents/Oregon State/Research/eBird/occ and grouping checklists/occ-cluster/site construction/input data/land cover data/OR_2020_fittedImage.tif")
 
 plot(ras.OR2)
-plot(ras.OR)
+# plot(ras.OR)
 ###################################################
 # DEFINING THE BOUNDARIES OF THE AREA OF INTEREST #
 ###################################################
@@ -250,24 +252,7 @@ plot(cropped)
 # DISP DIST MATRIX 
 # FOR COMMUTE DISTANCE
 ####################
-# get_upper_tri <- function(cormat){
-#   cormat[lower.tri(cormat)]<- NA
-#   return(cormat)
-# }
-# 
-# cdCorr <- commuteDistance(trCorr, WETA_in_box@coords)
-# 
-# dim <- 8
-# chklsts<-WETA_in_box$`WETA_coords_df$checklist_id`
-# cormat <- get_upper_tri(as.matrix(cdCorr))
-# colnames(cormat) <- as.character(chklsts)
-# rownames(cormat) <- as.character(chklsts)
-# m <- melt(cormat)
-# 
-# m$value_hundT<-round(m$value/100000, 2)
-# ggplot(data = m, aes(x=Var1, y=Var2, fill=value_hundT)) + 
-#   geom_tile() +  geom_text(aes(label = value_hundT), color = "black", size = 3) +
-#   theme(axis.text.x=element_text(angle = -90, hjust = 0))
+
 
 
 # ######
@@ -338,7 +323,7 @@ names(cropped.hwy) <- c("NLCD_2011_OR", "hwy_50", "hwy_100", "hwy_200")
 # trCorr <- geoCorrection(tr1, type = 'c')
 
 
-###
+#########
 # adding river buffers
 ###
 # L_riv_50 <- shapefile("site construction/input data/Hwy_Riv_Buffers/lar_riv_buff_50_diss.shp")
@@ -404,11 +389,11 @@ names(cropped.hwy) <- c("NLCD_2011_OR", "hwy_50", "hwy_100", "hwy_200")
 #   overwrite=TRUE,
 #   options=c("INTERLEAVE=BAND","COMPRESS=LZW")
 # )
+#########
 
-cropped.hwy.riv <- brick("site construction/cropped_hwy_riv.tif")
-
+cropped.hwy.riv <- brick("site construction/cropped_hwy_riv-pre-filled.tif")
 names(cropped.hwy.riv) <- c("NLCD_2011_OR", "hwy_50", "hwy_100", "hwy_200", "L_riv_50", "L_riv_100", "M_riv_50")
-
+# plot(cropped.hwy.riv)
 # resistance values for highway and river buffers
 # hwy 50:     3
 # hwy 100:    2
@@ -418,28 +403,22 @@ names(cropped.hwy.riv) <- c("NLCD_2011_OR", "hwy_50", "hwy_100", "hwy_200", "L_r
 # L riv 100:  2
 # M riv 50:   2.5
 # M riv 100:  1.5
-cropped.hwy.riv[['hwy_50']][cropped.hwy.riv[['hwy_50']] == 1] <- 3
-cropped.hwy.riv[['hwy_100']][cropped.hwy.riv[['hwy_100']] == 1] <- 2
-cropped.hwy.riv[['hwy_200']][cropped.hwy.riv[['hwy_200']] == 1] <- 1.5
+# cropped.hwy.riv[['hwy_50']][cropped.hwy.riv[['hwy_50']] == 1] <- 3
+# cropped.hwy.riv[['hwy_100']][cropped.hwy.riv[['hwy_100']] == 1] <- 2
+# cropped.hwy.riv[['hwy_200']][cropped.hwy.riv[['hwy_200']] == 1] <- 1.5
+# 
+# cropped.hwy.riv[['L_riv_50']][cropped.hwy.riv[['L_riv_50']] == 1] <- 3
+# cropped.hwy.riv[['L_riv_100']][cropped.hwy.riv[['L_riv_100']] == 1] <- 2
+# cropped.hwy.riv[['M_riv_50']][cropped.hwy.riv[['M_riv_50']] == 1] <- 2.5
+# # M_riv_50_rast[is.na(M_riv_50_rast)] <- 0
 
-cropped.hwy.riv[['L_riv_50']][cropped.hwy.riv[['L_riv_50']] == 1] <- 3
-cropped.hwy.riv[['L_riv_100']][cropped.hwy.riv[['L_riv_100']] == 1] <- 2
-cropped.hwy.riv[['M_riv_50']][cropped.hwy.riv[['M_riv_50']] == 1] <- 2.5
-# M_riv_50_rast[is.na(M_riv_50_rast)] <- 0
-
-o <- load.WETA()
-WETA_2017 <- o[[1]]
-covObj <- o[[2]]
-
-# WETA_reproj_coords <- sp::spTransform(WETA_2017[,c('latitude', 'longitude')], crs(cropped.hwy.riv))
-prj <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
-w_long_lat <- WETA_2017[,c('longitude', 'latitude')]
-names(w_long_lat) <- c("long", "lat")
-proj_coords_df <- SpatialPointsDataFrame(coords = w_long_lat, 
-                                         data = as.data.frame(WETA_2017$checklist_id), 
-                                         proj4string = prj)
-
-WETA_reproj_coords <- spTransform(proj_coords_df, crs(cropped.hwy.riv))
+# outfile <- writeRaster(
+#   cropped.hwy.riv,
+#   filename='site construction/cropped_hwy_riv-pre-filled.tif',
+#   format="GTiff",
+#   overwrite=TRUE,
+#   options=c("INTERLEAVE=BAND","COMPRESS=LZW")
+# )
 
 ##### PICKUP FROM HERE #####
 ############################
@@ -447,41 +426,181 @@ WETA_reproj_coords <- spTransform(proj_coords_df, crs(cropped.hwy.riv))
 # and check if this conductance assignments
 # group checklists appropriately
 
-x_val2 <- WETA_reproj_coords[WETA_reproj_coords$`WETA_coords_df$checklist_id` == "",]@coords[[1]]
-y_val2 <- WETA_reproj_coords[WETA_reproj_coords$`WETA_coords_df$checklist_id` == "",]@coords[[2]]
+o <- load.WETA()
+WETA_2017 <- o[[1]]
+covObj <- o[[2]]
 
-xmax2 <- x_val2 + 10000
-xmin2 <- x_val2 - 10000
-ymax2 <- y_val2 + 10000
-ymin2 <- y_val2 - 10000
+# WETA_reproj_coords <- sp::spTransform(WETA_2017[,c('latitude', 'longitude')], crs(cropped.hwy.riv))
+# prj <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+# w_long_lat <- WETA_2017[,c('longitude', 'latitude')]
+# names(w_long_lat) <- c("long", "lat")
+# proj_coords_df <- SpatialPointsDataFrame(coords = WETA_2017[,c('longitude', 'latitude')], 
+#                                          data = as.data.frame(WETA_2017$checklist_id), 
+#                                          proj4string = prj)
+# 
+# WETA_reproj_coords <- sp::spTransform(proj_coords_df, crs(cropped.hwy.riv))
+
+WETA_2017_uniq <- sqldf("SELECT * from WETA_2017 GROUP BY latitude, longitude")
+WETA_coords_df <- as.data.frame(list(long=WETA_2017_uniq$longitude, lat=WETA_2017_uniq$latitude))
+WETA_coords_df$checklist_id <- WETA_2017_uniq$checklist_id
+ 
+prj <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+WETA_proj_coords_df <- SpatialPointsDataFrame(coords = WETA_coords_df[,1:2],
+                                              data = as.data.frame(WETA_coords_df$checklist_id),
+                                              proj4string = prj)
+
+WETA_reproj_coords <- sp::spTransform(WETA_proj_coords_df, crs(cropped.hwy.riv))
+
+
+x_val2 <- WETA_reproj_coords[WETA_reproj_coords$`WETA_coords_df$checklist_id` == "S37368862",]@coords[[1]]
+y_val2 <- WETA_reproj_coords[WETA_reproj_coords$`WETA_coords_df$checklist_id` == "S37368862",]@coords[[2]]
+
+xmax2 <- x_val2 + 1000
+xmin2 <- x_val2 - 1000
+ymax2 <- y_val2 + 1000
+ymin2 <- y_val2 - 1000
+
+# full_trans_mat <- transition.BRICK(cropped.hwy.riv, transitionFunction = conductanceVals, directions = 8)
 
 test_ex2 <- crop(cropped.hwy.riv, c(xmin2, xmax2, ymin2, ymax2))
-tr2 <- transition(test_ex2, transition.BRICK = conductanceVals, directions = 8)
+tr2 <- transition.BRICK(test_ex2, transitionFunction = conductanceVals, directions = 8)
 trCorr2 <- geoCorrection(tr2, type = 'c')
+
+test_ex2.none <- dropLayer(test_ex2, c(2,3,4,5,6))
+# test_ex2.none
+# test_ex2.none[['M_riv_50']][test_ex2.none[['M_riv_50']] == 1] <- 3
+# TODO: bug in transition.BRICK (and transition) that prevents a single layer from being fed in
+tr2.none <- transition.BRICK(test_ex2.none, transitionFunction = conductanceVals, directions = 8)
+trCorr2.none <- geoCorrection(tr2.none, type = 'c')
 
 c2 <- matrix(nrow=4, ncol=2)
 c2[1,] <- c(xmax2,ymax2)
 c2[2,] <- c(xmax2,ymin2)
 c2[3,] <- c(xmin2,ymin2)
 c2[4,] <- c(xmin2,ymax2)
-points(c2, col="black", cex=2)
+points(c2, col="blue", cex=2)
 
 g2 <- graph_from_adjacency_matrix(trCorr2@transitionMatrix, mode = "undirected", weighted = T)
 
-cellNum2 <- cellFromXY(trCorr, WETA_in_box@coords)
+g2 <- graph_from_adjacency_matrix(z@transitionMatrix, mode = "undirected", weighted = T)
 
-d2.A <- distances(g2, cellNum2[1], cellNum2[2])
-d2.B <- distances(g2, cellNum2[3], cellNum2[4])
-d2.C <- distances(g2, cellNum2[4], cellNum2[5])
-d2.D <- distances(g2, cellNum2[5], cellNum2[6])
-if(!(d2.A > d2.B)){
-  print("ERROR")
+z1 <- igraph::all_shortest_paths(g2, 2211)
+eid <- get.edge.ids(g2, c(2211,2278))
+get.edge.attribute(g2)
+
+z1$res
+
+trCorr2@
+trCorr2@transitionMatrix
+trCorr2@transitionCells
+g2
+
+WETA_in_box2 <- subset(WETA_reproj_coords, WETA_reproj_coords@coords[,'long'] >= xmin2)
+WETA_in_box2 <- subset(WETA_in_box2, WETA_in_box2@coords[,'long'] <= xmax2)
+WETA_in_box2 <- subset(WETA_in_box2, WETA_in_box2@coords[,'lat'] >= ymin2)
+WETA_in_box2 <- subset(WETA_in_box2, WETA_in_box2@coords[,'lat'] <= ymax2)
+
+p1 <- plotDistMatrix(trCorr2, WETA_in_box2, "Checklists near river + highway w/ populated resistance values")
+p2 <- plotDistMatrix(trCorr2.none, WETA_in_box2, "Checklists near river + highway NCLD resistance values only")
+
+grid.arrange(p1,p2,ncol=2)
+
+
+chklst_df <- cbind(raster::extract(test_ex2, cellFromXY(test_ex2.none, WETA_in_box2@coords)), WETA_in_box2@coords, checklist_id=WETA_in_box2$`WETA_coords_df$checklist_id`) #, xyFromCell(test_ex2, cellFromXY(test_ex2.none, WETA_in_box2@coords))
+
+
+
+
+library(gtools)
+preLoad <- list()
+preLoad <- readRDS("preLoad-3-3.rds")
+
+if(length(preLoad) == 0){
+  lst <- prepProj.centers(WETA_2017, covObj, MDD, MIN_OBS, MAX_OBS)
+  proj_cent <- lst[[1]]
+  WETA_filtered <- lst[[2]]
+} else {
+  proj_cent <- preLoad[[1]]
+  WETA_filtered <- preLoad[[2]]
 }
 
-# 
-# test_ex1 <- crop(cropped.hwy.riv, c(xmin, xmax, ymin, ymax))
-# tr1 <- transition.BRICK(test_ex1, transitionFunction = conductanceVals, directions = 8)
-# trCorr <- geoCorrection(tr1, type = 'c')
+o <- load.WETA()
+WETA_2017 <- o[[1]]
+covObj <- o[[2]]
+
+WETA_2017_uniq <- sqldf("SELECT * from WETA_2017 GROUP BY latitude, longitude")
+WETA_coords_df <- as.data.frame(list(long=WETA_2017_uniq$longitude, lat=WETA_2017_uniq$latitude))
+WETA_coords_df$checklist_id <- WETA_2017_uniq$checklist_id
+
+prj <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+WETA_proj_coords_df <- SpatialPointsDataFrame(coords = WETA_coords_df[,1:2],
+                                              data = as.data.frame(WETA_coords_df$checklist_id),
+                                              proj4string = prj)
+
+WETA_reproj_coords <- sp::spTransform(WETA_proj_coords_df, crs(cropped.hwy.riv))
+
+
+proj_cent_lat_long <- sqldf(
+    "SELECT pc.*, wf.latitude, wf.longitude FROM proj_cent AS pc 
+    INNER JOIN WETA_filtered AS wf ON pc.checklist_id == wf.checklist_id"
+    )
+
+proj_cent_uniq <- sqldf(
+  "SELECT * from proj_cent_lat_long GROUP BY latitude, longitude"
+)
+nrow(proj_cent_uniq)
+dMat <- matrix(nrow = nrow(proj_cent_uniq), ncol = nrow(proj_cent_uniq), dimnames = list(proj_cent_uniq$checklist_id,proj_cent_uniq$checklist_id))
+# dMat["S37368862","S37368862"]
+for(region in unique(proj_cent_uniq$site)){
+  checklists <- proj_cent[proj_cent$site == region,]
+  if(nrow(checklists) > 1){
+    comb <- combinations(nrow(checklists), 2)
+    for(i in 1:nrow(comb)){
+      c1 <- checklists[comb[i,1],]
+      c2 <- checklists[comb[i,2],]
+      
+      findShortPathRegion(cropped.hwy.riv, c1, c2)
+      
+    }
+    
+  }
+}
+
+
+findShortPathRegion <- function(cropped.hwy.riv, checklist1, checklist2){
+  x_val <- WETA_reproj_coords[WETA_reproj_coords$`WETA_coords_df$checklist_id` == checklist1$checklist_id,]@coords[[1]]
+  y_val <- WETA_reproj_coords[WETA_reproj_coords$`WETA_coords_df$checklist_id` == checklist1$checklist_id,]@coords[[2]]
+  # 500m ~should~ be plenty
+  xmax <- x_val + 500
+  xmin <- x_val - 500
+  ymax <- y_val + 500
+  ymin <- y_val - 500
+  
+  # full_trans_mat <- transition.BRICK(cropped.hwy.riv, transitionFunction = conductanceVals, directions = 8)
+  
+  region_raster <- crop(cropped.hwy.riv, c(xmin, xmax, ymin, ymax))
+  r.transMat <- transition.BRICK(region_raster, transitionFunction = conductanceVals, directions = 8)
+  r.transMat.Corr <- geoCorrection(r.transMat, type = 'c')
+  
+  g <- graph_from_adjacency_matrix(r.transMat.Corr@transitionMatrix, mode = "undirected", weighted = T)
+  
+  # TODO: find vertex for each checklist and then find cost of shortest path between them
+  
+  return(1)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

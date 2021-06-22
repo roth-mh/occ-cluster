@@ -24,7 +24,7 @@ obj <- load.WETA()
 WETA_2017 <- obj[[1]]
 covObj <- obj[[2]]
 
-# TODO: order matters, must be sorted after the first two
+
 test_names.A <- list("balls",
                      "agglom-updated",
                      "clustGeo-.8-850",
