@@ -728,6 +728,7 @@ combineMethodsAgg <- function(proj_cent, WETA_sites, og_data, run_mod=TRUE){
       
       dMat <- clusterSimil(subset(vertex_by_sites.DF, select = -c(vertex)), ignoreFirstCol = 0)
       v_map <- data.frame(pvs_vertex = vertex_by_sites.DF$vertex, aggl_v = seq(1:nrow(dMat)))
+      
       # if run_mod == TRUE, we make a simplifying assumption that does not hold
       # TODO: refactor and make quicker
       agglom_sites <- agglCluster(dMat, run_mod)
@@ -751,17 +752,9 @@ combineMethodsAgg <- function(proj_cent, WETA_sites, og_data, run_mod=TRUE){
     }
   }
 
-  # og_data <- inner_join(og_data, WETA_sites[c("checklist_id", "vertex")], by="checklist_id")
+
   og_data <- inner_join(og_data, v_by_s_df[c("vertex", "site")], by="vertex")
     
-  # og_data$site <- -1
-  # for(row in 1:nrow(v_by_s_df)){
-  #   v <- v_by_s_df[row,]$vertex
-  #   lat <- og_data[og_data$vertex == v, ]$latitude
-  #   lon <- og_data[og_data$vertex == v, ]$longitude
-  #   og_data[og_data$latitude == lat & og_data$longitude == lon,]$site <- v_by_s_df[row,]$site
-  # }
-  # 
   return(og_data)
 }
 
@@ -796,6 +789,9 @@ ClusterPurity <- function(clusters, classes) {
   sum(apply(table(classes, clusters), 2, max)) / length(clusters)
 }
 
+
+# function to calculate the clusterings for each test specified in 
+# variable `tests`
 runExp <- function(tests, covObj, WETA_sites, og_data, truth_df, proj_cent, comb_df=NA, comb_aggl_df_fast=NA){
   
   sites_obj <- appendSites(tests, WETA_sites, og_data, covObj, truth_df)
@@ -811,6 +807,7 @@ runExp <- function(tests, covObj, WETA_sites, og_data, truth_df, proj_cent, comb
     disp("BALLS alg duration: ", as.character(end))
   
     ptm <- proc.time()
+    # TODO: fix run_mod
     comb_aggl_df_fast <- combineMethodsAgg(proj_cent, WETA_sites, og_data, run_mod = TRUE)
     end <- proc.time() - ptm
     disp("AGGLOM-UPDATED alg duration: ", as.character(end))
@@ -819,17 +816,6 @@ runExp <- function(tests, covObj, WETA_sites, og_data, truth_df, proj_cent, comb
   # initialize mse list
   sites_list <- list()
   
-  # # run this through an occupancy model
-  # consensus_mse <- calcOccMSE(comb_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
-  # mse_list[["balls"]] <- consensus_mse
-  # 
-  # aggl_consensus_mse <- calcOccMSE(comb_aggl_df_fast, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
-  # mse_list[["agglom-updated"]] <- aggl_consensus_mse
-  # 
-  # # aggl_consensus_mse <- calcOccMSE(comb_aggl_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
-  # # mse_list <- append(mse_list, list(aggl_consensus_mse))
-  # 
-  # base_mse <- calcOccMSE(truth_df, covObj, TRUE_OCC_COEFF, TRUE_DET_COEFF, syn_spec = T)
   sites_list[["balls"]] <- comb_df
   sites_list[["agglom"]] <- comb_aggl_df_fast
   sites_list[["base"]] <- truth_df
@@ -878,9 +864,7 @@ makeINPUT_SIMUL.DF <- function(res_obj){
   for(i in 1:nrow(pairwise_comb)){
     first_alg <- pairwise_comb[i,][[1]]
     second_alg <- pairwise_comb[i,][[2]]
-    
-    # o1 <- res_obj$mse.list[[first_alg]]$checklists[order(res_obj$mse.list[[first_alg]]$checklists$checklist_id),]
-    # o2 <- res_obj$mse.list[[second_alg]]$checklists[order(res_obj$mse.list[[second_alg]]$checklists$checklist_id),]
+  
     stats_list <- calcStats(res_obj$mse.list[[first_alg]]$checklists, res_obj$mse.list[[second_alg]]$checklists)
     if(i == 1){
       df <- as.data.frame(stats_list)  
@@ -1219,26 +1203,10 @@ runStabilityExp <- function(exp, truth_df, WETA_2017, WETA_filtered, proj_cent, 
 
 # experiment to test similarity and mse of sp. clustering algs
 # against the ground truth (no consensus clustering)
+#
+# this runs the clustering aspect of most of the algorithms.
+# evaluation occurs at a later step
 baselineExp <- function(tests, og_data, covObj, truth_df){
-  
-  # results <- list(
-  #   rounded=NA, 
-  #   eBird=NA, 
-  #   eBird_simple=NA,
-  #   # kmSq=list(),
-  #   kmSq=NA,
-  #   DBSC=NA,
-  #   GT=NA,
-  #   noisy_gt=NA,
-  #   # clustGeo=list(),
-  #   clustGeo=NA,
-  #   # agnes=list(),
-  #   agnes=NA,
-  #   kmeans=NA,
-  #   base=list(truth_df)
-  #   # kmeans=list()
-  #   # local=list()
-  # )
   
   results <- list()
   results[["base"]] <- truth_df
@@ -1304,12 +1272,10 @@ baselineExp <- function(tests, og_data, covObj, truth_df){
     results[["eBird_simple"]] <- eBird_simple_df
   }
   
-  # the issue is that checklist ID is not necc unique rn
-  # would it be ok to just assign it a new checklist id if duplicate? 
-  # i think this would actually work?
+
   if(!is.na(tests$DBSC)){
     DBSC_df <- runDBSC(og_data, covObj)
-    # results$DBSC <- list(DBSC_df)
+  
     results[["DBSC"]] <- DBSC_df
   }
   
@@ -1365,8 +1331,6 @@ calcAccSingleVisitSites <- function(checklist_df, truth_df){
   return(length(acc.svs))
 }
 
-# simil.GT <- calcStats(clustGeo_df.850.8, truth_df)
-# # z <- as.data.frame(simil.GT, row.names = "bimbo")
 
 # prob_MSE is MSE calculated as the average difference between true probability and predicted probability
 clusterStats <- function(checklist_df, truth_df, og_data, test_name, covObj, occ_coeff, det_coeff, full_df=data.frame(), prob_MSE=FALSE){
@@ -1434,8 +1398,6 @@ combineIntoDF <- function(results.obj, numExps){
   z <- res/numExps
   return(z)
 }
-
-
 
 
 

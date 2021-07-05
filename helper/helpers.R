@@ -333,6 +333,9 @@ add_to_summary <- function(res_obj, final_s, TRUE_OCC_COEFF, TRUE_DET_COEFF){
 #   4. runs dataset through the occu model in unmarked
 #   5. calculates difference in estimated generative model
 #       and true generative model
+#
+# if truth_df is not empty, this means MSE of probabilities will be calculated, rather than
+# the MSE of coefficients
 ##########
 calcOccMSE <- function(sites_df_occ, covariate_object, true_occ_coefficients, true_det_coefficients, syn_spec=FALSE, skip_closure=FALSE, truth_df=data.frame()){
   sites_occ <- subset(sites_df_occ, !duplicated(site))$site

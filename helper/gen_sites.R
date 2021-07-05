@@ -4,9 +4,7 @@
 library(locfit)
 library(mclust)
 
-# occ_coefficients <- c(-.5, 0.4650489593471517, 0.25523159396930695, 0.8861590762863591, -0.20144247919650793, 0.3855035300948283)
-# det_coefficients <- c(-1, -0.3605617900907053, 0.8502497538703003, -0.012596564563653434, 0.10894040227556012, 0.4170190133546442)
-
+# populates the DF with occ/det values & probabilities
 populateDF <- function(sites_df, occ_cov_list, det_cov_list, sites_list, occ_coefficients, det_coefficients){
   j<-0
   for(eBird_site in sites_list){
