@@ -428,7 +428,7 @@ prepProj.centers <- function(WETA_2017, covObj, MDD, MIN_OBS, MAX_OBS){
       }
       # all of the same site
       else if(case2(sites)){
-        
+        # print("same")
       }
       # some mix of sites ==> union them
       else {
@@ -449,7 +449,7 @@ prepProj.centers <- function(WETA_2017, covObj, MDD, MIN_OBS, MAX_OBS){
     proj_cent[proj_cent$site == s,]$site <- j
     j <- j + 1
   }
-  
+  print("finished with proj centers")
   ############
   # HIST & TABLE
   ############
@@ -459,23 +459,23 @@ prepProj.centers <- function(WETA_2017, covObj, MDD, MIN_OBS, MAX_OBS){
   # grid.table(dt)
   ############
   
-  # load ground truth data set
-  f_name <- "../../../clusteredSites_2020-12-26_.csv"
-  clusted_sites <- read.delim(f_name, sep=",")
-  WETA_filtered <- WETA_2017
-  WETA_filtered$site <- -1
-  WETA_filtered$det_prob <- -1
-  
-  # link sites with their respective checklists
-  for(row in 1:nrow(WETA_filtered)){
-    # disp(row)
-    long <- WETA_filtered[row, ]$longitude
-    lat <- WETA_filtered[row, ]$latitude
-    site_obj <- clusted_sites[clusted_sites$longitude == long & clusted_sites$latitude == lat,]
-    WETA_filtered[row,]$site <- as.character(site_obj$site)
-  }
-  
-  return(list(proj_cent, WETA_filtered))
+  # # load ground truth data set
+  # f_name <- "../../../clusteredSites_2020-12-26_.csv"
+  # clusted_sites <- read.delim(f_name, sep=",")
+  # WETA_filtered <- WETA_2017
+  # WETA_filtered$site <- -1
+  # WETA_filtered$det_prob <- -1
+  # 
+  # # link sites with their respective checklists
+  # for(row in 1:nrow(WETA_filtered)){
+  #   # disp(row)
+  #   long <- WETA_filtered[row, ]$longitude
+  #   lat <- WETA_filtered[row, ]$latitude
+  #   site_obj <- clusted_sites[clusted_sites$longitude == long & clusted_sites$latitude == lat,]
+  #   WETA_filtered[row,]$site <- as.character(site_obj$site)
+  # }
+  # 
+  return(list(proj_cent, WETA_2017))
 }
 
 # construct many sites and join them together
@@ -1206,10 +1206,12 @@ runStabilityExp <- function(exp, truth_df, WETA_2017, WETA_filtered, proj_cent, 
 #
 # this runs the clustering aspect of most of the algorithms.
 # evaluation occurs at a later step
-baselineExp <- function(tests, og_data, covObj, truth_df){
+baselineExp <- function(tests, og_data, covObj, truth_df=data.frame()){
   
   results <- list()
-  results[["base"]] <- truth_df
+  if(nrow(truth_df) > 0){
+    results[["base"]] <- truth_df  
+  }
   
   if(length(tests$rounded) > 0){
     WETA_2017_i <- roundLatLong(og_data, 4)

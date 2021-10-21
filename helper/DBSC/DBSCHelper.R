@@ -12,11 +12,13 @@ library(tcR)
 formatVert <- function(WETA_df, covObj){
   v_pts <- subset(WETA_df, select = c("latitude", "longitude", "checklist_id", covObj$siteCovs))
   v_pts_df <- as.data.frame(v_pts)
-  v_pts <- sqldf("SELECT latitude, longitude, checklist_id, fall_nbr_TCA_mean_75, 
-                                  fall_nbr_B4_stdDev_150, 
-                                  elevation_stdDev_150, 
-                                  spring_nbr_B7_stdDev_300, 
-                                  aspect_mean_300 from v_pts_df group by latitude, longitude")
+  # v_pts <- sqldf("SELECT latitude, longitude, checklist_id, fall_nbr_TCA_mean_75, 
+  #                                 fall_nbr_B4_stdDev_150, 
+  #                                 elevation_stdDev_150, 
+  #                                 spring_nbr_B7_stdDev_300, 
+  #                                 aspect_mean_300 from v_pts_df group by latitude, longitude")
+  v_pts <- sqldf("SELECT latitude, longitude, checklist_id,
+                 TCB, TCA, TCW, TCG from v_pts_df")
   v_pts$checklist_id <- as.character(v_pts$checklist_id)
   return(v_pts)
 }

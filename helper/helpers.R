@@ -224,14 +224,8 @@ enforceClosure <- function(sites_df, occ_cov_list, sites_list){
       clust_geo_df = rbind(clust_geo_df, checklists_at_site)
     }
     
-    # if(sum(checklists_at_site$species_observed_syn) == 0){
-    #   count <- count + 1
-    # }
     
   }
-  # disp("zero detection sites: ", as.character(count))
-  # disp("prop of sites: ", as.character(count/length(sites_list)))
-  # disp("occupied sites: ", as.character(length(sites_list)-count))
   return(clust_geo_df)
 }
 
@@ -399,11 +393,10 @@ calcOccMSE <- function(sites_df_occ, covariate_object, true_occ_coefficients, tr
   closed_df$occ_2 <- closed_df[[names(occ_ex_intercept[3])]] * occ_ex_intercept[[3]]
   closed_df$occ_3 <- closed_df[[names(occ_ex_intercept[4])]] * occ_ex_intercept[[4]]
   closed_df$occ_4 <- closed_df[[names(occ_ex_intercept[5])]] * occ_ex_intercept[[5]]
-  closed_df$occ_5 <- closed_df[[names(occ_ex_intercept[6])]] * occ_ex_intercept[[6]]
+  # closed_df$occ_5 <- closed_df[[names(occ_ex_intercept[6])]] * occ_ex_intercept[[6]]
   
   closed_df$pred_occupied_prob <- apply(closed_df, 1, s1)
   
-  # just split this into 10 separate columns? ... :(
   t_df <- sqldf("SELECT * FROM truth_df WHERE checklist_id IN (SELECT checklist_id FROM closed_df)")
   
   closed_df <- closed_df[order(closed_df$checklist_id),]
@@ -429,7 +422,7 @@ s <- function(x, output){
 
 s1 <- function(x, output){
   val <- as.numeric(x[["occ_int"]]) + as.numeric(x[["occ_1"]]) + as.numeric(x[["occ_2"]]) +
-    as.numeric(x[["occ_3"]]) + as.numeric(x[["occ_4"]]) + as.numeric(x[["occ_5"]])
+    as.numeric(x[["occ_3"]]) + as.numeric(x[["occ_4"]]) #+ as.numeric(x[["occ_5"]])
   return(expit(val))
 }
 
@@ -468,11 +461,15 @@ calc_zero_det_sites <- function(list_of_checklists){
 }
 
 
-load.WETA <- function(all=FALSE){
-  f_in_WETA <- "../../../ICB General/data generation/2017_UPDATED_COVS_df.csv"
+load.WETA <- function(f_in_WETA="", f_in_syn_spec_form="", all=FALSE){
+  if(f_in_WETA == ""){
+    f_in_WETA <- "../../../ICB General/data generation/2017_UPDATED_COVS_df.csv"  
+  }
   WETA_2017_all <- read.delim(f_in_WETA, header=TRUE, sep = ",")
   # WETA_2017 <- groomDataframe(WETA_2017, covObj$det_cov, covObj$occ_cov, syn_spec = T)
-  f_in_syn_spec_form <- "../../Class Imbalance/generate syn spec/data/linear/syn_species_1_formula.txt"
+  if(f_in_syn_spec_form == ""){
+    f_in_syn_spec_form <- "../../Class Imbalance/generate syn spec/data/linear/syn_species_1_formula.txt"  
+  }
   covObj <- loadCovariates(f_in_syn_spec_form)
   covObj$siteCovs <- as.character(c("fall_nbr_TCA_mean_75", 
                                     "fall_nbr_B4_stdDev_150", 
@@ -489,8 +486,11 @@ load.WETA <- function(all=FALSE){
 }
 
 
-load.WETA_filtered <- function(WETA_2017){
-  f_name <- "../../../clusteredSites_2020-12-26_.csv"
+load.WETA_filtered <- function(WETA_2017, f_name=""){
+  if(f_name == ""){
+    f_name <- "../../../clusteredSites_2020-12-26_.csv"  
+  }
+  
   clusted_sites <- read.delim(f_name, sep=",")
   WETA_filtered <- WETA_2017
   WETA_filtered$site <- -1

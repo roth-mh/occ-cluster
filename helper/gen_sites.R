@@ -18,7 +18,6 @@ populateDF <- function(sites_df, occ_cov_list, det_cov_list, sites_list, occ_coe
     # site_baseline <- checklists_at_site[which.max(checklists_at_site$time_observations_started),]
     
     occ_sum <- occ_coefficients[1]
-    occ_cov_list <- covObj$siteCovs
     for(k in 1:length(occ_cov_list)){
       # find centroid of each occ cov and multiply it by the 
       avg_occ_cov <- mean(checklists_at_site[[occ_cov_list[k]]])
@@ -26,7 +25,6 @@ populateDF <- function(sites_df, occ_cov_list, det_cov_list, sites_list, occ_coe
       checklists_at_site[[occ_cov_list[k]]] <- avg_occ_cov
     }
     
-    det_cov_list <- covObj$obsCovs
     for(row in 1:nrow(checklists_at_site)){
       det_sum <- det_coefficients[1]
       

@@ -21,6 +21,8 @@ ras.OR <- raster("~/Documents/Oregon State/Research/eBird/occ and grouping check
 ras.OR2 <- raster("~/Documents/Oregon State/Research/eBird/occ and grouping checklists/occ-cluster/site construction/input data/land cover data/OR_2020_fittedImage.tif")
 
 plot(ras.OR2)
+
+reproj <- projectRaster(envVars, crs=crs(ras.OR2))
 # plot(ras.OR)
 ###################################################
 # DEFINING THE BOUNDARIES OF THE AREA OF INTEREST #
